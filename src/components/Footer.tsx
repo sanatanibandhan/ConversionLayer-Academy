@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import {
   FIVERR_PROFILE_URL,
   WHATSAPP_DIRECT_URL,
@@ -13,9 +14,9 @@ export const Footer: React.FC<FooterProps> = () => {
   return (
     <footer id="app-footer" className="border-t border-slate-900 bg-slate-950 text-slate-400 py-14 sm:py-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 pb-12 border-b border-slate-900">
-          {/* Brand & Mission Column (5 cols on lg) */}
-          <div className="lg:col-span-5 space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-10 lg:gap-8 pb-12 border-b border-slate-900">
+          {/* Brand & Mission Column (4 cols on lg) */}
+          <div className="sm:col-span-2 lg:col-span-4 space-y-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500/20 to-indigo-700/10 border border-indigo-500/40 flex items-center justify-center text-indigo-400 shadow-sm">
                 <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -40,8 +41,8 @@ export const Footer: React.FC<FooterProps> = () => {
             </div>
           </div>
 
-          {/* Quick Navigation Column (3 cols on lg) */}
-          <div className="lg:col-span-3 space-y-3">
+          {/* Quick Navigation Column (2 cols on lg) */}
+          <div className="lg:col-span-2 space-y-3">
             <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-slate-300">
               System Navigation
             </h4>
@@ -53,19 +54,70 @@ export const Footer: React.FC<FooterProps> = () => {
               </li>
               <li>
                 <a href="#case-studies-section" className="hover:text-indigo-400 transition-colors">
-                  Case Studies &amp; Benchmarks
+                  Case Studies
+                </a>
+              </li>
+              <li>
+                <a href="#deployment-protocol-section" className="hover:text-indigo-400 transition-colors">
+                  Engineering Protocol
                 </a>
               </li>
               <li>
                 <a href="#services-section" className="hover:text-indigo-400 transition-colors">
-                  Pricing Architecture
+                  Capabilities Matrix
+                </a>
+              </li>
+              <li>
+                <a href="#faq-section" className="hover:text-indigo-400 transition-colors">
+                  Anti-Agency FAQ
                 </a>
               </li>
             </ul>
           </div>
 
+          {/* Resources & Company Column (2 cols on lg) */}
+          <div className="lg:col-span-2 space-y-3">
+            <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+              <span>Resources &amp; R&amp;D</span>
+            </h4>
+            <ul className="space-y-2.5 text-sm">
+              <li>
+                <Link
+                  to="/labs"
+                  id="footer-nav-link-labs"
+                  className="inline-flex items-center gap-1.5 text-indigo-300 hover:text-white transition-colors group font-medium"
+                >
+                  <span>SyncOps Labs</span>
+                  <span className="px-1.5 py-0.5 rounded bg-indigo-950 border border-indigo-800 text-[10px] font-mono text-indigo-400 group-hover:text-indigo-300">
+                    R&amp;D
+                  </span>
+                </Link>
+              </li>
+              <li>
+                <a
+                  href="https://www.youtube.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-indigo-400 transition-colors"
+                >
+                  YouTube Channel
+                </a>
+              </li>
+              <li>
+                <Link to="/admin" className="text-slate-400 hover:text-slate-200 transition-colors">
+                  Admin Terminal
+                </Link>
+              </li>
+              <li>
+                <span className="text-xs text-slate-400 font-mono block pt-1">
+                  Proprietary Tech
+                </span>
+              </li>
+            </ul>
+          </div>
+
           {/* Connect with the Architect Hub (4 cols on lg) */}
-          <div className="lg:col-span-4 space-y-4">
+          <div className="sm:col-span-2 lg:col-span-4 space-y-4">
             <div>
               <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-white flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-indigo-500" />

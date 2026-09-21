@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { Navbar } from '../components/Navbar';
 import { Hero } from '../components/Hero';
-import { AuditorTool } from '../components/AuditorTool';
+import { TrackingAuditor } from '../components/TrackingAuditor';
 import { CaseStudies } from '../components/CaseStudies';
+import { Protocol } from '../components/Protocol';
 import { Services } from '../components/Services';
+import { FAQ } from '../components/FAQ';
 import { Footer } from '../components/Footer';
 import { HireModal } from '../components/HireModal';
 import { Service } from '../data/syncOpsData';
@@ -59,14 +61,20 @@ export const Home: React.FC = () => {
           onScrollToCaseStudies={scrollToCaseStudies}
         />
 
-        {/* The Tracking Auditor (Real Gemini-powered Diagnostic Tool) */}
-        <AuditorTool onHireFix={handleHireFromAuditor} />
+        {/* The Tracking Auditor (Omnichannel Diagnostic Engine & Heuristic CAPI Analysis) */}
+        <TrackingAuditor onHireFix={handleHireFromAuditor} />
 
         {/* Client Case Studies Section (Real Dynamic Firestore Integration) */}
         <CaseStudies onOpenConsultation={(topic) => handleOpenHireModal(topic)} />
 
+        {/* The Deployment Protocol Section (4-Stage Engineering Pipeline) - Placed Above Capabilities Matrix */}
+        <Protocol onOpenConsultation={(topic) => handleOpenHireModal(topic)} />
+
         {/* Enterprise Capabilities Matrix (Categorized Dynamic Firestore Integration) */}
         <Services onOrderService={handleOrderService} />
+
+        {/* The Anti-Agency FAQ Section (Objection Handling & Asynchronous Engineering Model) */}
+        <FAQ onOpenConsultation={(topic) => handleOpenHireModal(topic)} />
       </main>
 
       {/* Footer */}

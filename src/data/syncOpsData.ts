@@ -39,10 +39,12 @@ export interface Service {
 export interface CaseStudy {
   id: string;
   client: string;
+  industry?: string;
   clientType?: string;
   challenge: string;
   solution: string;
   result: string;
+  metric?: string;
   imageUrl?: string;
   createdAt?: unknown;
 }
@@ -55,6 +57,28 @@ export interface Lead {
   whatsappNumber: string;
   trackingChallenge?: string;
   serviceTier?: string;
+  createdAt?: unknown;
+}
+
+export interface LabProject {
+  id: string;
+  name: string;
+  description: string;
+  techStack: string[];
+  url: string;
+  category?: string;
+  badge?: string;
+  imageUrl?: string;
+  createdAt?: unknown;
+}
+
+export interface LabVideo {
+  id: string;
+  title: string;
+  embedUrl: string;
+  description?: string;
+  category?: string;
+  duration?: string;
   createdAt?: unknown;
 }
 
@@ -232,25 +256,72 @@ export const DEFAULT_CASE_STUDIES: CaseStudy[] = [
   {
     id: 'dtc-luxury-apparel',
     client: 'Velour & Oak (Shopify Plus DTC)',
+    industry: 'E-Commerce Fashion ($12M ARR)',
     clientType: 'E-Commerce Fashion ($12M ARR)',
     challenge: 'iOS 14.5 and Safari ITP browser restrictions caused 38% loss of purchase signals. Meta ROAS reported falsely dropped from 3.4x to 1.8x, triggering erroneous ad scale reductions.',
     solution: 'Deployed isolated Server-Side GTM container on Google Cloud Run via custom subdomain (data.velouroak.com). Enforced strict SHA-256 hashed customer parameters (em, ph, fn, ln) with dual-stream Meta CAPI + client deduplication.',
+    metric: '+41% ROAS Recovery',
     result: '+41% Recovered Attributed Revenue • Meta EMQ increased from 4.8 to 9.6/10 • Match Rate > 92%'
   },
   {
     id: 'fintech-b2b-saas',
     client: 'LedgerStack (B2B FinTech Platform)',
+    industry: 'B2B FinTech ($45k ACV)',
     clientType: 'High-Ticket SaaS ($45k ACV)',
     challenge: 'Multi-step demo booking and trial signups failed to attribute to high-cost Google Search ads due to cross-domain iframe embedding and strict cookie privacy policies.',
     solution: 'Engineered server-side event pipeline linking HubSpot webhook callbacks directly to Google Ads Enhanced Conversions API and GA4 Measurement Protocol with client ID persistence.',
+    metric: '-29% Cost Per Qualified Lead',
     result: '100% Offline Revenue Attribution • -29% Google Ads Cost-Per-Qualified-Lead • Zero Ad Blocker Signal Drop'
   },
   {
     id: 'supplements-brand',
     client: 'Aura Nutrition (Omnichannel Health)',
+    industry: 'E-Commerce Health & CPG',
     clientType: 'High-Velocity CPG Brand',
     challenge: 'TikTok Pixel and Meta CAPI simultaneously suffered catastrophic over-reporting and double-counting during Black Friday, inflating CPA models and distorting budget allocation.',
     solution: 'Architected unified Stape.io server proxy with synthetic unique event_id generation. Added Google Consent Mode v2 strict payload gating with automated event throttling.',
+    metric: '9.8/10 EMQ & $35k Saved',
     result: 'Zero Duplicate Conversions • 9.8 Event Match Quality Score • Saved $35k in wasted ad spend'
   }
 ];
+
+export const DEFAULT_LAB_PROJECTS: LabProject[] = [
+  {
+    id: 'sanatani-bandhan',
+    name: 'Sanatani Bandhan',
+    category: 'Community & Matchmaking App',
+    badge: 'Proprietary Startup',
+    description: 'High-trust cultural matrimonial and community platform engineered with end-to-end user verification, encrypted matchmaking preferences, and low-latency real-time synchronization.',
+    techStack: ['React Native', 'Firebase Firestore', 'Cloud Functions', 'TypeScript', 'Tailwind CSS'],
+    url: 'https://sanatanibandhan.com'
+  },
+  {
+    id: 'ultra-calculator',
+    name: 'Ultra Calculator',
+    category: 'Utility & Scientific Engine',
+    badge: 'Proprietary Utility',
+    description: 'High-precision mathematical and programmatic computation engine designed for offline-first operations, algorithmic equation solving, and financial telemetry modeling.',
+    techStack: ['React Native', 'TypeScript', 'WebAssembly (WASM)', 'Tailwind CSS', 'Firebase'],
+    url: 'https://ultracalculator.app'
+  }
+];
+
+export const DEFAULT_LAB_VIDEOS: LabVideo[] = [
+  {
+    id: 'video-sgtm-cloud-run',
+    title: 'Server-Side GTM on Cloud Run vs Stape.io: Zero Data Loss Guide',
+    embedUrl: 'https://www.youtube.com/embed/fD3_P_q5Nqg',
+    description: 'Comprehensive architectural breakdown comparing dedicated GCP Cloud Run clusters with edge Stape.io instances, covering ITP cookie bypass and custom subdomain routing.',
+    category: 'Architecture Deep-Dive',
+    duration: '18:42'
+  },
+  {
+    id: 'video-meta-capi-emq',
+    title: 'Meta Conversions API (CAPI) Deduplication & Event Match Quality (EMQ)',
+    embedUrl: 'https://www.youtube.com/embed/7V2Y3lKjI58',
+    description: 'How to implement deterministic SHA-256 customer data hashing, cryptographic event_id generation, and eliminate 100% of double-counted conversion spikes in Meta Ads Manager.',
+    category: 'Telemetry Engineering',
+    duration: '22:15'
+  }
+];
+

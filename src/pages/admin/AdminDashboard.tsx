@@ -11,9 +11,16 @@ import {
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { auth, db, storage } from '../../lib/firebase';
-import { DEFAULT_SERVICES, DEFAULT_CASE_STUDIES, APPLICATION_FORM_URL } from '../../data/syncOpsData';
+import { 
+  DEFAULT_SERVICES, 
+  DEFAULT_CASE_STUDIES, 
+  DEFAULT_LAB_PROJECTS,
+  DEFAULT_LAB_VIDEOS,
+  APPLICATION_FORM_URL 
+} from '../../data/syncOpsData';
+import { formatYoutubeEmbedUrl } from '../Labs';
 
-type DashboardTab = 'services' | 'case_studies' | 'leads';
+type DashboardTab = 'services' | 'case_studies' | 'leads' | 'labs';
 
 interface FirestoreServiceItem {
   id: string;
@@ -37,9 +44,11 @@ interface FirestoreServiceItem {
 interface FirestoreCaseStudyItem {
   id: string;
   client: string;
+  industry?: string;
   clientType?: string;
   challenge: string;
   solution: string;
+  metric?: string;
   result: string;
   imageUrl?: string;
   createdAt?: unknown;
@@ -53,6 +62,27 @@ interface FirestoreLeadItem {
   whatsappNumber: string;
   trackingChallenge?: string;
   serviceTier?: string;
+  createdAt?: unknown;
+}
+
+interface FirestoreLabProjectItem {
+  id: string;
+  name: string;
+  description: string;
+  techStack: string[];
+  url: string;
+  category?: string;
+  badge?: string;
+  createdAt?: unknown;
+}
+
+interface FirestoreLabVideoItem {
+  id: string;
+  title: string;
+  embedUrl: string;
+  description?: string;
+  category?: string;
+  duration?: string;
   createdAt?: unknown;
 }
 
@@ -81,10 +111,31 @@ export const AdminDashboard: React.FC = () => {
 
   // Case Study Form State
   const [clientName, setClientName] = useState('');
-  const [clientType, setClientType] = useState('');
+  const [industry, setIndustry] = useState('');
   const [challenge, setChallenge] = useState('');
   const [solution, setSolution] = useState('');
-  const [resultMetric, setResultMetric] = useState('');
+  const [metric, setMetric] = useState('');
+
+  // Labs & R&D State
+  const [labProjects, setLabProjects] = useState<FirestoreLabProjectItem[]>([]);
+  const [labVideos, setLabVideos] = useState<FirestoreLabVideoItem[]>([]);
+
+  // Lab Project Form State
+  const [labAppName, setLabAppName] = useState('');
+  const [labAppDesc, setLabAppDesc] = useState('');
+  const [labAppTechStack, setLabAppTechStack] = useState('React Native, Firebase, TypeScript');
+  const [labAppUrl, setLabAppUrl] = useState('');
+  const [labAppCategory, setLabAppCategory] = useState('Community & Social App');
+  const [labAppBadge, setLabAppBadge] = useState('Proprietary Software');
+  const [isSubmittingLabProject, setIsSubmittingLabProject] = useState(false);
+
+  // Lab Video Form State
+  const [labVideoTitle, setLabVideoTitle] = useState('');
+  const [labVideoEmbedUrl, setLabVideoEmbedUrl] = useState('');
+  const [labVideoDesc, setLabVideoDesc] = useState('');
+  const [labVideoCategory, setLabVideoCategory] = useState('Architecture Deep-Dive');
+  const [labVideoDuration, setLabVideoDuration] = useState('18:45');
+  const [isSubmittingLabVideo, setIsSubmittingLabVideo] = useState(false);
 
   // Shared Upload & Submitting State
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -160,13 +211,17 @@ export const AdminDashboard: React.FC = () => {
         if (!snapshot.empty) {
           const fetched: FirestoreCaseStudyItem[] = snapshot.docs.map((docSnap) => {
             const data = docSnap.data();
+            const industryVal = data.industry || data.clientType || 'E-Commerce';
+            const metricVal = data.metric || data.result || '+41% ROAS Recovery';
             return {
               id: docSnap.id,
               client: data.client || 'Enterprise Client',
-              clientType: data.clientType || 'Brand',
+              industry: industryVal,
+              clientType: industryVal,
               challenge: data.challenge || '',
               solution: data.solution || '',
-              result: data.result || '',
+              metric: metricVal,
+              result: metricVal,
               imageUrl: data.imageUrl || '',
               createdAt: data.createdAt
             };
@@ -177,9 +232,11 @@ export const AdminDashboard: React.FC = () => {
             DEFAULT_CASE_STUDIES.map((c) => ({
               id: c.id,
               client: c.client,
+              industry: c.industry || c.clientType || 'E-Commerce',
               clientType: c.clientType,
               challenge: c.challenge,
               solution: c.solution,
+              metric: c.metric || c.result,
               result: c.result,
               imageUrl: c.imageUrl || ''
             }))
@@ -228,6 +285,65 @@ export const AdminDashboard: React.FC = () => {
         } else {
           setLeadItems([]);
         }
+      } else if (activeTab === 'labs') {
+        // Fetch lab_projects
+        try {
+          const projCol = collection(db, 'lab_projects');
+          const projSnap = await getDocs(projCol);
+          if (!projSnap.empty) {
+            const fetchedProjects: FirestoreLabProjectItem[] = projSnap.docs.map((docSnap) => {
+              const data = docSnap.data();
+              let stack: string[] = [];
+              if (Array.isArray(data.techStack)) {
+                stack = data.techStack.filter((s: unknown) => typeof s === 'string' && s.trim().length > 0);
+              } else if (typeof data.techStack === 'string') {
+                stack = data.techStack.split(',').map((s: string) => s.trim()).filter(Boolean);
+              }
+              return {
+                id: docSnap.id,
+                name: data.name || '',
+                description: data.description || '',
+                techStack: stack.length > 0 ? stack : ['React Native', 'Firebase'],
+                url: data.url || '',
+                category: data.category || 'Community App',
+                badge: data.badge || 'Proprietary Software',
+                createdAt: data.createdAt
+              };
+            });
+            setLabProjects(fetchedProjects);
+          } else {
+            setLabProjects(DEFAULT_LAB_PROJECTS);
+          }
+        } catch (e) {
+          console.warn('Firestore lab_projects getDocs notice:', e);
+          setLabProjects(DEFAULT_LAB_PROJECTS);
+        }
+
+        // Fetch lab_videos
+        try {
+          const vidCol = collection(db, 'lab_videos');
+          const vidSnap = await getDocs(vidCol);
+          if (!vidSnap.empty) {
+            const fetchedVideos: FirestoreLabVideoItem[] = vidSnap.docs.map((docSnap) => {
+              const data = docSnap.data();
+              return {
+                id: docSnap.id,
+                title: data.title || '',
+                embedUrl: formatYoutubeEmbedUrl(data.embedUrl || data.url || ''),
+                description: data.description || '',
+                category: data.category || 'Architecture Deep-Dive',
+                duration: data.duration || 'Deep-Dive',
+                createdAt: data.createdAt
+              };
+            });
+            setLabVideos(fetchedVideos);
+          } else {
+            setLabVideos(DEFAULT_LAB_VIDEOS);
+          }
+        } catch (e) {
+          console.warn('Firestore lab_videos getDocs notice:', e);
+          setLabVideos(DEFAULT_LAB_VIDEOS);
+        }
       }
     } catch (err: unknown) {
       console.warn(`Firestore getDocs notice for ${activeTab}:`, err);
@@ -256,6 +372,9 @@ export const AdminDashboard: React.FC = () => {
             imageUrl: c.imageUrl || ''
           }))
         );
+      } else if (activeTab === 'labs') {
+        setLabProjects(DEFAULT_LAB_PROJECTS);
+        setLabVideos(DEFAULT_LAB_VIDEOS);
       } else {
         setLeadItems([]);
       }
@@ -268,9 +387,9 @@ export const AdminDashboard: React.FC = () => {
     fetchCollectionItems();
   }, [fetchCollectionItems]);
 
-  // Initial load to populate lead count badge regardless of initial active tab
+  // Initial load to populate badges regardless of initial active tab
   useEffect(() => {
-    async function loadLeadCount() {
+    async function loadInitialCounts() {
       try {
         const colRef = collection(db, 'leads');
         const snap = await getDocs(colRef);
@@ -293,8 +412,57 @@ export const AdminDashboard: React.FC = () => {
       } catch (e) {
         console.warn('Initial lead load error:', e);
       }
+
+      try {
+        const projCol = collection(db, 'lab_projects');
+        const projSnap = await getDocs(projCol);
+        if (!projSnap.empty) {
+          const pList: FirestoreLabProjectItem[] = projSnap.docs.map((d) => {
+            const data = d.data();
+            return {
+              id: d.id,
+              name: data.name || '',
+              description: data.description || '',
+              techStack: Array.isArray(data.techStack) ? data.techStack : ['React Native'],
+              url: data.url || '',
+              category: data.category,
+              badge: data.badge,
+              createdAt: data.createdAt
+            };
+          });
+          setLabProjects(pList);
+        } else {
+          setLabProjects(DEFAULT_LAB_PROJECTS);
+        }
+      } catch {
+        setLabProjects(DEFAULT_LAB_PROJECTS);
+      }
+
+      try {
+        const vidCol = collection(db, 'lab_videos');
+        const vidSnap = await getDocs(vidCol);
+        if (!vidSnap.empty) {
+          const vList: FirestoreLabVideoItem[] = vidSnap.docs.map((d) => {
+            const data = d.data();
+            return {
+              id: d.id,
+              title: data.title || '',
+              embedUrl: formatYoutubeEmbedUrl(data.embedUrl || ''),
+              description: data.description || '',
+              category: data.category,
+              duration: data.duration,
+              createdAt: data.createdAt
+            };
+          });
+          setLabVideos(vList);
+        } else {
+          setLabVideos(DEFAULT_LAB_VIDEOS);
+        }
+      } catch {
+        setLabVideos(DEFAULT_LAB_VIDEOS);
+      }
     }
-    loadLeadCount();
+    loadInitialCounts();
   }, []);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -439,12 +607,16 @@ export const AdminDashboard: React.FC = () => {
     }
 
     try {
+      const cleanMetric = metric.trim() || '+41% ROAS Recovery';
+      const cleanIndustry = industry.trim() || 'E-Commerce';
       const newStudyData = {
         client: clientName.trim(),
-        clientType: clientType.trim() || 'High-Growth Brand',
+        industry: cleanIndustry,
+        clientType: cleanIndustry,
         challenge: challenge.trim(),
         solution: solution.trim(),
-        result: resultMetric.trim(),
+        metric: cleanMetric,
+        result: cleanMetric,
         imageUrl: finalImageUrl,
         createdAt: serverTimestamp()
       };
@@ -460,28 +632,32 @@ export const AdminDashboard: React.FC = () => {
 
       setFeedback({
         type: 'success',
-        message: `Case Study for "${newStudyData.client}" successfully created in Firestore.`
+        message: `Case Study for "${newStudyData.client}" successfully created in Firestore collection "case_studies".`
       });
 
       // Reset Form
       setClientName('');
-      setClientType('');
+      setIndustry('');
       setChallenge('');
       setSolution('');
-      setResultMetric('');
+      setMetric('');
       setImageFile(null);
       setImagePreview('');
     } catch (err: unknown) {
       console.error('Error adding case study document:', err);
+      const cleanMetric = metric.trim() || '+41% ROAS Recovery';
+      const cleanIndustry = industry.trim() || 'E-Commerce';
       const localId = `local-case-${Date.now()}`;
       setCaseStudyItems((prev) => [
         {
           id: localId,
           client: clientName.trim(),
-          clientType: clientType.trim() || 'High-Growth Brand',
+          industry: cleanIndustry,
+          clientType: cleanIndustry,
           challenge: challenge.trim(),
           solution: solution.trim(),
-          result: resultMetric.trim(),
+          metric: cleanMetric,
+          result: cleanMetric,
           imageUrl: finalImageUrl
         },
         ...prev
@@ -491,10 +667,10 @@ export const AdminDashboard: React.FC = () => {
         message: `Case study added (Local update saved. Verify Firestore permissions if cloud write deferred).`
       });
       setClientName('');
-      setClientType('');
+      setIndustry('');
       setChallenge('');
       setSolution('');
-      setResultMetric('');
+      setMetric('');
       setImageFile(null);
       setImagePreview('');
     } finally {
@@ -549,6 +725,172 @@ export const AdminDashboard: React.FC = () => {
     }
   };
 
+  const handleAddLabProject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!labAppName.trim() || !labAppDesc.trim() || !labAppUrl.trim()) {
+      setFeedback({
+        type: 'error',
+        message: 'Please provide App Name, Description, and Application URL.'
+      });
+      return;
+    }
+
+    setIsSubmittingLabProject(true);
+    setFeedback(null);
+
+    const techStackArray = labAppTechStack
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    const newProjectData = {
+      name: labAppName.trim(),
+      description: labAppDesc.trim(),
+      techStack: techStackArray.length > 0 ? techStackArray : ['React Native', 'Firebase'],
+      url: labAppUrl.trim(),
+      category: labAppCategory.trim() || 'Community App',
+      badge: labAppBadge.trim() || 'Proprietary Software',
+      createdAt: serverTimestamp()
+    };
+
+    try {
+      const docRef = await addDoc(collection(db, 'lab_projects'), newProjectData);
+      setLabProjects((prev) => [
+        {
+          id: docRef.id,
+          ...newProjectData
+        },
+        ...prev
+      ]);
+      setFeedback({
+        type: 'success',
+        message: `Proprietary app "${newProjectData.name}" successfully added to Firestore collection "lab_projects".`
+      });
+
+      // Reset form
+      setLabAppName('');
+      setLabAppDesc('');
+      setLabAppUrl('');
+    } catch (err: unknown) {
+      console.error('Error adding lab project document:', err);
+      const localId = `local-lab-${Date.now()}`;
+      setLabProjects((prev) => [
+        {
+          id: localId,
+          ...newProjectData
+        },
+        ...prev
+      ]);
+      setFeedback({
+        type: 'success',
+        message: `App "${newProjectData.name}" added to local preview.`
+      });
+      setLabAppName('');
+      setLabAppDesc('');
+      setLabAppUrl('');
+    } finally {
+      setIsSubmittingLabProject(false);
+    }
+  };
+
+  const handleAddLabVideo = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!labVideoTitle.trim() || !labVideoEmbedUrl.trim()) {
+      setFeedback({
+        type: 'error',
+        message: 'Please provide Video Title and YouTube Embed URL.'
+      });
+      return;
+    }
+
+    setIsSubmittingLabVideo(true);
+    setFeedback(null);
+
+    const normalizedEmbedUrl = formatYoutubeEmbedUrl(labVideoEmbedUrl.trim());
+
+    const newVideoData = {
+      title: labVideoTitle.trim(),
+      embedUrl: normalizedEmbedUrl,
+      description: labVideoDesc.trim(),
+      category: labVideoCategory.trim() || 'Architecture Deep-Dive',
+      duration: labVideoDuration.trim() || 'Deep-Dive',
+      createdAt: serverTimestamp()
+    };
+
+    try {
+      const docRef = await addDoc(collection(db, 'lab_videos'), newVideoData);
+      setLabVideos((prev) => [
+        {
+          id: docRef.id,
+          ...newVideoData
+        },
+        ...prev
+      ]);
+      setFeedback({
+        type: 'success',
+        message: `Technical video "${newVideoData.title}" successfully added to Firestore collection "lab_videos".`
+      });
+
+      // Reset form
+      setLabVideoTitle('');
+      setLabVideoEmbedUrl('');
+      setLabVideoDesc('');
+    } catch (err: unknown) {
+      console.error('Error adding lab video document:', err);
+      const localId = `local-vid-${Date.now()}`;
+      setLabVideos((prev) => [
+        {
+          id: localId,
+          ...newVideoData
+        },
+        ...prev
+      ]);
+      setFeedback({
+        type: 'success',
+        message: `Video "${newVideoData.title}" added to local preview.`
+      });
+      setLabVideoTitle('');
+      setLabVideoEmbedUrl('');
+      setLabVideoDesc('');
+    } finally {
+      setIsSubmittingLabVideo(false);
+    }
+  };
+
+  const handleDeleteLabProject = async (itemId: string) => {
+    if (!window.confirm('Are you sure you want to delete this proprietary app record?')) return;
+    setIsDeletingId(itemId);
+    setFeedback(null);
+    try {
+      await deleteDoc(doc(db, 'lab_projects', itemId));
+    } catch (e) {
+      console.warn('Firestore lab_projects delete error:', e);
+    }
+    setLabProjects((prev) => prev.filter((item) => item.id !== itemId));
+    setIsDeletingId(null);
+    setFeedback({
+      type: 'success',
+      message: 'Proprietary app removed successfully.'
+    });
+  };
+
+  const handleDeleteLabVideo = async (itemId: string) => {
+    if (!window.confirm('Are you sure you want to delete this technical video record?')) return;
+    setIsDeletingId(itemId);
+    setFeedback(null);
+    try {
+      await deleteDoc(doc(db, 'lab_videos', itemId));
+    } catch (e) {
+      console.warn('Firestore lab_videos delete error:', e);
+    }
+    setLabVideos((prev) => prev.filter((item) => item.id !== itemId));
+    setIsDeletingId(null);
+    setFeedback({
+      type: 'success',
+      message: 'Video breakdown removed successfully.'
+    });
+  };
+
   const handleLogout = async () => {
     try {
       await signOut(auth);
@@ -598,7 +940,20 @@ export const AdminDashboard: React.FC = () => {
                   <polyline points="15 3 21 3 21 9" />
                   <line x1="10" y1="14" x2="21" y2="3" />
                 </svg>
-                <span>Live Site</span>
+                <span>Agency Site</span>
+              </Link>
+
+              <Link
+                to="/labs"
+                id="admin-view-labs-link"
+                className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-indigo-950/40 border border-indigo-800/60 hover:border-indigo-700 text-xs font-mono text-indigo-300 hover:text-white transition-all min-h-[44px]"
+              >
+                <svg className="w-4 h-4 text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polygon points="12 2 2 7 12 12 22 7 12 2" />
+                  <polyline points="12 17 12 22 22 17" />
+                  <polyline points="2 12 12 17 22 12" />
+                </svg>
+                <span>Labs Route</span>
               </Link>
 
               <button
@@ -713,6 +1068,32 @@ export const AdminDashboard: React.FC = () => {
               <span>Incoming Leads</span>
               <span className="text-xs font-mono px-1.5 py-0.5 rounded bg-slate-950/60 text-slate-300">
                 {leadItems.length}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              id="admin-tab-labs"
+              role="tab"
+              aria-selected={activeTab === 'labs'}
+              onClick={() => {
+                setActiveTab('labs');
+                setFeedback(null);
+              }}
+              className={`min-h-[44px] px-5 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 ${
+                activeTab === 'labs'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+              }`}
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polygon points="12 2 2 7 12 12 22 7 12 2" />
+                <polyline points="12 17 12 22 22 17" />
+                <polyline points="2 12 12 17 22 12" />
+              </svg>
+              <span>Labs &amp; R&amp;D</span>
+              <span className="text-xs font-mono px-1.5 py-0.5 rounded bg-slate-950/60 text-slate-300">
+                {labProjects.length + labVideos.length}
               </span>
             </button>
           </div>
@@ -1090,13 +1471,14 @@ export const AdminDashboard: React.FC = () => {
 
                 <div>
                   <label className="block text-xs font-mono font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
-                    Client Type / Sector
+                    Industry (e.g., E-Commerce) *
                   </label>
                   <input
                     type="text"
-                    value={clientType}
-                    onChange={(e) => setClientType(e.target.value)}
-                    placeholder="e.g. E-Commerce Fashion ($12M ARR)"
+                    required
+                    value={industry}
+                    onChange={(e) => setIndustry(e.target.value)}
+                    placeholder="e.g. E-Commerce Fashion, B2B SaaS, Health DTC"
                     className="w-full min-h-[44px] px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
@@ -1131,14 +1513,14 @@ export const AdminDashboard: React.FC = () => {
 
                 <div>
                   <label className="block text-xs font-mono font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
-                    Result Metric *
+                    Key Metric (e.g., "+41% ROAS Recovery") *
                   </label>
                   <input
                     type="text"
                     required
-                    value={resultMetric}
-                    onChange={(e) => setResultMetric(e.target.value)}
-                    placeholder="e.g. +41% Attributed ROAS • Meta EMQ 9.6/10 • $140k Recovered"
+                    value={metric}
+                    onChange={(e) => setMetric(e.target.value)}
+                    placeholder="e.g. +41% ROAS Recovery • 9.8/10 EMQ Score • $140k Recovered"
                     className="w-full min-h-[44px] px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
@@ -1202,20 +1584,24 @@ export const AdminDashboard: React.FC = () => {
                     key={study.id}
                     className="p-5 rounded-2xl bg-slate-900 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-slate-700 transition-all"
                   >
-                    <div className="space-y-1 flex-1">
-                      <div className="flex items-center gap-2">
+                    <div className="space-y-1.5 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span className="text-base font-bold text-white">{study.client}</span>
-                        {study.clientType && (
+                        {(study.industry || study.clientType) && (
                           <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-slate-950 text-indigo-400 border border-slate-800">
-                            {study.clientType}
+                            {study.industry || study.clientType}
                           </span>
                         )}
                       </div>
-                      <div className="p-2 rounded-lg bg-emerald-950/30 border border-emerald-800/40 text-xs font-mono text-emerald-300 mt-1">
-                        🎯 {study.result}
+                      <div className="p-2.5 rounded-lg bg-emerald-950/40 border border-emerald-800/50 text-sm font-mono font-bold text-emerald-400 flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+                        <span>{study.metric || study.result}</span>
                       </div>
                       <p className="text-xs text-slate-400 line-clamp-2 mt-1">
                         <strong className="text-slate-300">Challenge:</strong> {study.challenge}
+                      </p>
+                      <p className="text-xs text-slate-400 line-clamp-2">
+                        <strong className="text-slate-300">Solution:</strong> {study.solution}
                       </p>
                     </div>
 
@@ -1489,6 +1875,468 @@ export const AdminDashboard: React.FC = () => {
                 })}
               </div>
             )}
+          </div>
+        )}
+
+        {/* TAB 4: LABS & R&D SHOWCASE CMS */}
+        {activeTab === 'labs' && (
+          <div id="admin-labs-management-panel" className="space-y-12">
+            {/* Header info banner */}
+            <div className="p-6 rounded-2xl bg-indigo-950/20 border border-indigo-900/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2 text-indigo-400 font-mono text-xs font-bold uppercase tracking-wider mb-1">
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polygon points="12 2 2 7 12 12 22 7 12 2" />
+                    <polyline points="12 17 12 22 22 17" />
+                    <polyline points="2 12 12 17 22 12" />
+                  </svg>
+                  <span>SyncOps Labs • R&amp;D Showcase CMS</span>
+                </div>
+                <h2 className="text-xl font-bold text-white">
+                  Proprietary Applications &amp; YouTube Video Channels
+                </h2>
+                <p className="text-xs text-slate-400 mt-1 max-w-2xl">
+                  Manage the isolated showcase at <code className="text-indigo-300 font-mono">/labs</code>. Updates here write directly to Firestore collections <code className="text-indigo-300 font-mono">lab_projects</code> and <code className="text-indigo-300 font-mono">lab_videos</code>.
+                </p>
+              </div>
+
+              <Link
+                to="/labs"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-mono font-bold transition-all shrink-0 min-h-[44px]"
+              >
+                <span>Preview /labs Live</span>
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                  <polyline points="15 3 21 3 21 9" />
+                  <line x1="10" y1="14" x2="21" y2="3" />
+                </svg>
+              </Link>
+            </div>
+
+            {/* PART 1: PROPRIETARY APPLICATIONS (lab_projects) */}
+            <div id="admin-lab-projects-section" className="space-y-6">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-indigo-400" />
+                  <h3 className="text-lg font-bold text-white">
+                    1. Proprietary Software Applications (<code className="text-xs font-mono text-indigo-300">lab_projects</code>)
+                  </h3>
+                </div>
+                <span className="text-xs font-mono text-slate-400">
+                  {labProjects.length} Active {labProjects.length === 1 ? 'Build' : 'Builds'}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                {/* Add Project Form (5 cols) */}
+                <div className="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+                  <h4 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
+                    <svg className="w-4 h-4 text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <line x1="12" y1="5" x2="12" y2="19" />
+                      <line x1="5" y1="12" x2="19" y2="12" />
+                    </svg>
+                    <span>Add New Proprietary App</span>
+                  </h4>
+
+                  <form onSubmit={handleAddLabProject} className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-mono text-slate-400 mb-1">
+                        Application Name *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={labAppName}
+                        onChange={(e) => setLabAppName(e.target.value)}
+                        placeholder="e.g., Sanatani Bandhan"
+                        className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-indigo-500 transition-colors"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-mono text-slate-400 mb-1">
+                        Category / Archetype
+                      </label>
+                      <input
+                        type="text"
+                        value={labAppCategory}
+                        onChange={(e) => setLabAppCategory(e.target.value)}
+                        placeholder="e.g., Community & Matchmaking App"
+                        className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-indigo-500 transition-colors"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-mono text-slate-400 mb-1">
+                        Badge Label
+                      </label>
+                      <input
+                        type="text"
+                        value={labAppBadge}
+                        onChange={(e) => setLabAppBadge(e.target.value)}
+                        placeholder="e.g., Proprietary Software or Internal Startup"
+                        className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-indigo-500 transition-colors"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-mono text-slate-400 mb-1">
+                        Description &amp; Architecture *
+                      </label>
+                      <textarea
+                        required
+                        rows={3}
+                        value={labAppDesc}
+                        onChange={(e) => setLabAppDesc(e.target.value)}
+                        placeholder="Detail the technical architecture, purpose, and scale metrics..."
+                        className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-indigo-500 transition-colors resize-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-mono text-slate-400 mb-1">
+                        Tech Stack (Comma Separated) *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={labAppTechStack}
+                        onChange={(e) => setLabAppTechStack(e.target.value)}
+                        placeholder="React Native, Firebase, TypeScript, Cloud Functions"
+                        className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-indigo-500 transition-colors"
+                      />
+                      <span className="text-[11px] font-mono text-slate-500 mt-1 block">
+                        Separate frameworks with commas.
+                      </span>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-mono text-slate-400 mb-1">
+                        Application URL / Live Web Link *
+                      </label>
+                      <input
+                        type="url"
+                        required
+                        value={labAppUrl}
+                        onChange={(e) => setLabAppUrl(e.target.value)}
+                        placeholder="https://sanatanibandhan.com"
+                        className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-indigo-500 transition-colors"
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={isSubmittingLabProject}
+                      className="w-full min-h-[44px] py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-mono text-xs font-bold transition-all shadow-lg shadow-indigo-950/40 flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+                    >
+                      {isSubmittingLabProject ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          <span>Publishing to lab_projects...</span>
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                          <span>Publish Application to Labs</span>
+                        </>
+                      )}
+                    </button>
+                  </form>
+                </div>
+
+                {/* Existing Projects List (7 cols) */}
+                <div className="lg:col-span-7 space-y-4">
+                  <div className="flex items-center justify-between text-xs font-mono text-slate-400 px-1">
+                    <span>Active Proprietary Projects</span>
+                    <span>Collection: lab_projects</span>
+                  </div>
+
+                  {labProjects.length === 0 ? (
+                    <div className="p-8 rounded-2xl bg-slate-900/60 border border-slate-800 text-center text-slate-400 text-sm">
+                      No proprietary software recorded. Use the form to submit one.
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {labProjects.map((proj) => (
+                        <div
+                          key={proj.id}
+                          className="p-5 rounded-2xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition-all flex flex-col justify-between gap-4"
+                        >
+                          <div>
+                            <div className="flex items-center justify-between gap-2 mb-2">
+                              <span className="text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-indigo-950 text-indigo-300 border border-indigo-800 font-semibold">
+                                {proj.badge || 'Proprietary Software'}
+                              </span>
+                              <span className="text-xs font-mono text-slate-400">
+                                {proj.category || 'App'}
+                              </span>
+                            </div>
+
+                            <h4 className="text-lg font-bold text-white">{proj.name}</h4>
+                            <p className="text-xs text-slate-300 mt-1 leading-relaxed">{proj.description}</p>
+
+                            <div className="mt-3 flex flex-wrap gap-1.5">
+                              {proj.techStack.map((tech, i) => (
+                                <span
+                                  key={i}
+                                  className="text-[11px] font-mono px-2 py-0.5 rounded bg-slate-950 text-slate-300 border border-slate-800"
+                                >
+                                  {tech}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between gap-3">
+                            <a
+                              href={proj.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs font-mono text-indigo-400 hover:text-indigo-300 flex items-center gap-1 min-h-[36px]"
+                            >
+                              <span>{proj.url}</span>
+                              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                                <polyline points="15 3 21 3 21 9" />
+                                <line x1="10" y1="14" x2="21" y2="3" />
+                              </svg>
+                            </a>
+
+                            <button
+                              type="button"
+                              disabled={isDeletingId === proj.id}
+                              onClick={() => handleDeleteLabProject(proj.id)}
+                              className="px-3 py-1.5 rounded-lg bg-slate-950 hover:bg-rose-950/50 text-slate-400 hover:text-rose-300 border border-slate-800 hover:border-rose-800/60 text-xs font-mono transition-colors flex items-center gap-1.5 disabled:opacity-50 min-h-[36px]"
+                            >
+                              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <polyline points="3 6 5 6 21 6" />
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                              </svg>
+                              <span>Delete</span>
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* PART 2: YOUTUBE TECHNICAL VIDEOS (lab_videos) */}
+            <div id="admin-lab-videos-section" className="space-y-6 pt-8 border-t border-slate-800">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
+                  <h3 className="text-lg font-bold text-white">
+                    2. Engineering Insights &amp; YouTube Content (<code className="text-xs font-mono text-rose-300">lab_videos</code>)
+                  </h3>
+                </div>
+                <span className="text-xs font-mono text-slate-400">
+                  {labVideos.length} Published {labVideos.length === 1 ? 'Video' : 'Videos'}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                {/* Add Video Form (5 cols) */}
+                <div className="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+                  <h4 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
+                    <svg className="w-4 h-4 text-rose-500" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+                    </svg>
+                    <span>Add Technical YouTube Breakdown</span>
+                  </h4>
+
+                  <form onSubmit={handleAddLabVideo} className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-mono text-slate-400 mb-1">
+                        Video Title *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={labVideoTitle}
+                        onChange={(e) => setLabVideoTitle(e.target.value)}
+                        placeholder="e.g., Server-Side GTM on Cloud Run vs Stape: Zero Data Loss Guide"
+                        className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-rose-500 transition-colors"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-mono text-slate-400 mb-1">
+                        YouTube Embed or Watch URL *
+                      </label>
+                      <input
+                        type="url"
+                        required
+                        value={labVideoEmbedUrl}
+                        onChange={(e) => setLabVideoEmbedUrl(e.target.value)}
+                        placeholder="https://www.youtube.com/watch?v=... or /embed/..."
+                        className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-rose-500 transition-colors"
+                      />
+                      <span className="text-[11px] font-mono text-slate-500 mt-1 block">
+                        Accepts full YouTube watch URLs, shortlinks (youtu.be), or iframe embed URLs.
+                      </span>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-mono text-slate-400 mb-1">
+                        Category
+                      </label>
+                      <input
+                        type="text"
+                        value={labVideoCategory}
+                        onChange={(e) => setLabVideoCategory(e.target.value)}
+                        placeholder="e.g., Architecture Deep-Dive or Telemetry Engineering"
+                        className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-rose-500 transition-colors"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-mono text-slate-400 mb-1">
+                        Video Duration
+                      </label>
+                      <input
+                        type="text"
+                        value={labVideoDuration}
+                        onChange={(e) => setLabVideoDuration(e.target.value)}
+                        placeholder="e.g., 18:42"
+                        className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-rose-500 transition-colors"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-mono text-slate-400 mb-1">
+                        Description &amp; Key Concepts
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={labVideoDesc}
+                        onChange={(e) => setLabVideoDesc(e.target.value)}
+                        placeholder="Brief summary of what telemetry or software architecture is covered..."
+                        className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-rose-500 transition-colors resize-none"
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={isSubmittingLabVideo}
+                      className="w-full min-h-[44px] py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-mono text-xs font-bold transition-all shadow-lg shadow-rose-950/40 flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+                    >
+                      {isSubmittingLabVideo ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          <span>Publishing to lab_videos...</span>
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                          <span>Publish Video to Labs</span>
+                        </>
+                      )}
+                    </button>
+                  </form>
+                </div>
+
+                {/* Existing Videos List (7 cols) */}
+                <div className="lg:col-span-7 space-y-4">
+                  <div className="flex items-center justify-between text-xs font-mono text-slate-400 px-1">
+                    <span>Published Technical Videos</span>
+                    <span>Collection: lab_videos</span>
+                  </div>
+
+                  {labVideos.length === 0 ? (
+                    <div className="p-8 rounded-2xl bg-slate-900/60 border border-slate-800 text-center text-slate-400 text-sm">
+                      No technical videos recorded. Use the form to submit one.
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {labVideos.map((vid) => {
+                        const embedUrl = formatYoutubeEmbedUrl(vid.embedUrl);
+                        return (
+                          <div
+                            key={vid.id}
+                            className="p-5 rounded-2xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition-all flex flex-col justify-between gap-4"
+                          >
+                            <div className="flex flex-col sm:flex-row items-start gap-4">
+                              {/* Video thumbnail or iframe embed preview */}
+                              <div className="w-full sm:w-44 aspect-video rounded-xl bg-slate-950 border border-slate-800 overflow-hidden shrink-0">
+                                {embedUrl ? (
+                                  <iframe
+                                    className="w-full h-full pointer-events-none"
+                                    src={embedUrl}
+                                    title={vid.title}
+                                    loading="lazy"
+                                  />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center text-slate-600">
+                                    <svg className="w-6 h-6 text-rose-500" viewBox="0 0 24 24" fill="currentColor">
+                                      <path d="M8 5v14l11-7z" />
+                                    </svg>
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="space-y-1 flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-slate-950 text-rose-300 border border-slate-800">
+                                    {vid.category || 'Architecture'}
+                                  </span>
+                                  {vid.duration && (
+                                    <span className="text-xs font-mono text-slate-400">
+                                      {vid.duration}
+                                    </span>
+                                  )}
+                                </div>
+                                <h4 className="text-base font-bold text-white">{vid.title}</h4>
+                                {vid.description && (
+                                  <p className="text-xs text-slate-300 line-clamp-2">{vid.description}</p>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between gap-3">
+                              <a
+                                href={vid.embedUrl.replace('/embed/', '/watch?v=')}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs font-mono text-rose-400 hover:text-rose-300 flex items-center gap-1 min-h-[36px]"
+                              >
+                                <span>Watch on YouTube</span>
+                                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                                  <polyline points="15 3 21 3 21 9" />
+                                  <line x1="10" y1="14" x2="21" y2="3" />
+                                </svg>
+                              </a>
+
+                              <button
+                                type="button"
+                                disabled={isDeletingId === vid.id}
+                                onClick={() => handleDeleteLabVideo(vid.id)}
+                                className="px-3 py-1.5 rounded-lg bg-slate-950 hover:bg-rose-950/50 text-slate-400 hover:text-rose-300 border border-slate-800 hover:border-rose-800/60 text-xs font-mono transition-colors flex items-center gap-1.5 disabled:opacity-50 min-h-[36px]"
+                              >
+                                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <polyline points="3 6 5 6 21 6" />
+                                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                </svg>
+                                <span>Delete</span>
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </main>
