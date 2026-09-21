@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { FIVERR_PROFILE_URL } from '../data/syncOpsData';
 
 interface NavbarProps {
@@ -94,6 +95,26 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenHireModal }) => {
             >
               FAQ
             </a>
+
+            <Link
+              to="/labs"
+              id="nav-link-labs"
+              className="text-slate-300 hover:text-indigo-400 text-sm font-medium transition-colors py-2 flex items-center gap-1.5"
+            >
+              <span>Labs</span>
+              <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-900 border border-slate-700 text-indigo-300">
+                R&amp;D
+              </span>
+            </Link>
+
+            <Link
+              to="/client/dashboard"
+              id="nav-link-client-portal"
+              className="text-indigo-300 hover:text-white text-sm font-mono font-medium transition-colors py-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-950/50 border border-indigo-800/60 hover:border-indigo-600"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span>Client Portal</span>
+            </Link>
 
             {/* Global Fiverr Verified CTA */}
             <a
@@ -256,6 +277,55 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenHireModal }) => {
               </svg>
               FAQ
             </a>
+
+            <Link
+              to="/labs"
+              id="mobile-nav-link-labs"
+              onClick={closeMobileMenu}
+              className="min-h-[44px] flex items-center justify-between px-4 py-3 rounded-xl text-base font-medium text-slate-200 hover:text-white hover:bg-slate-900/90 border border-transparent hover:border-slate-800 transition-colors"
+            >
+              <div className="flex items-center">
+                <svg
+                  className="w-5 h-5 mr-3 text-indigo-400"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <polygon points="12 2 2 7 12 12 22 7 12 2" />
+                  <polyline points="2 17 12 22 22 17" />
+                  <polyline points="2 12 12 17 22 12" />
+                </svg>
+                <span>Labs (R&amp;D Sandbox)</span>
+              </div>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-900 text-indigo-300 border border-slate-700">
+                Showcase
+              </span>
+            </Link>
+
+            <Link
+              to="/client/dashboard"
+              id="mobile-nav-link-client-portal"
+              onClick={closeMobileMenu}
+              className="min-h-[44px] flex items-center justify-between px-4 py-3 rounded-xl text-base font-medium text-white bg-indigo-950/60 border border-indigo-800/80 hover:bg-indigo-900/60 transition-colors"
+            >
+              <div className="flex items-center">
+                <svg
+                  className="w-5 h-5 mr-3 text-emerald-400"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
+                  <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+                </svg>
+                <span>Client SaaS Portal</span>
+              </div>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800">
+                Live
+              </span>
+            </Link>
 
             <div className="pt-3">
               <a

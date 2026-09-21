@@ -10,6 +10,7 @@ import {
   WHATSAPP_TRIAGE_URL
 } from '../data/syncOpsData';
 import { ApplicationModal } from './ApplicationModal';
+import { OrderIntakeModal } from './OrderIntakeModal';
 
 export interface ServicesProps {
   services?: Service[];
@@ -22,6 +23,18 @@ export const Services: React.FC<ServicesProps> = ({ services: propServices, onOr
   const [activeCategory, setActiveCategory] = useState<ServiceCategory>('Data & Measurement');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedServiceForModal, setSelectedServiceForModal] = useState<Service | null>(null);
+
+  // Native Order-to-Delivery Pipeline State
+  const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
+  const [selectedServiceForOrder, setSelectedServiceForOrder] = useState<Service | null>(null);
+
+  const handleRequestArchitecture = (service: Service) => {
+    setSelectedServiceForOrder(service);
+    setIsOrderModalOpen(true);
+    if (onOrderService) {
+      onOrderService(service);
+    }
+  };
 
   useEffect(() => {
     if (propServices && propServices.length > 0) {
@@ -406,13 +419,32 @@ export const Services: React.FC<ServicesProps> = ({ services: propServices, onOr
                     )}
                   </div>
 
-                  {/* Card Footer: Verified SLA & Security Indicator (No button on individual card) */}
-                  <div className="pt-5 mt-4 border-t border-slate-800/70 flex items-center justify-between text-[11px] font-mono text-slate-500">
-                    <span className="flex items-center gap-1.5 text-slate-400">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                      <span>Direct Sandbox Handover</span>
-                    </span>
-                    <span className="text-slate-500">100% Client Ownership</span>
+                  {/* Card Action & Footer: Direct Native Order-to-Delivery Pipeline */}
+                  <div className="pt-5 mt-4 border-t border-slate-800/70 flex flex-col gap-3">
+                    <button
+                      type="button"
+                      id={`request-architecture-btn-${service.id}`}
+                      onClick={() => handleRequestArchitecture(service)}
+                      className={`w-full min-h-[44px] px-4 py-2.5 rounded-xl font-mono text-xs font-bold tracking-wide uppercase transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-[0.98] ${
+                        isFeatured
+                          ? 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/30 border border-indigo-400/40'
+                          : 'bg-slate-800 hover:bg-indigo-600 hover:text-white text-slate-200 border border-slate-700/80 shadow-md shadow-black/40'
+                      }`}
+                    >
+                      <span>Request Architecture</span>
+                      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <line x1="5" y1="12" x2="19" y2="12" />
+                        <polyline points="12 5 19 12 12 19" />
+                      </svg>
+                    </button>
+
+                    <div className="flex items-center justify-between text-[11px] font-mono text-slate-500">
+                      <span className="flex items-center gap-1.5 text-slate-400">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                        <span>Direct Sandbox Handover</span>
+                      </span>
+                      <span className="text-slate-500">100% Client Ownership</span>
+                    </div>
                   </div>
                 </div>
               );
@@ -513,6 +545,13 @@ export const Services: React.FC<ServicesProps> = ({ services: propServices, onOr
         onClose={() => setIsModalOpen(false)}
         selectedService={selectedServiceForModal}
         selectedTier={selectedServiceForModal?.tier}
+      />
+
+      {/* Native Order-to-Delivery Service Intake Modal */}
+      <OrderIntakeModal
+        isOpen={isOrderModalOpen}
+        onClose={() => setIsOrderModalOpen(false)}
+        service={selectedServiceForOrder}
       />
     </section>
   );

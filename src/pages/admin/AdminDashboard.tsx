@@ -7,6 +7,7 @@ import {
   getDocs,
   deleteDoc,
   doc,
+  updateDoc,
   serverTimestamp
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -16,11 +17,14 @@ import {
   DEFAULT_CASE_STUDIES, 
   DEFAULT_LAB_PROJECTS,
   DEFAULT_LAB_VIDEOS,
-  APPLICATION_FORM_URL 
+  APPLICATION_FORM_URL,
+  ClientProject,
+  Milestone
 } from '../../data/syncOpsData';
 import { formatYoutubeEmbedUrl } from '../Labs';
+import { OrderManagement } from '../../components/admin/OrderManagement';
 
-type DashboardTab = 'services' | 'case_studies' | 'leads' | 'labs';
+type DashboardTab = 'services' | 'case_studies' | 'leads' | 'labs' | 'client_projects' | 'orders';
 
 interface FirestoreServiceItem {
   id: string;
@@ -136,6 +140,33 @@ export const AdminDashboard: React.FC = () => {
   const [labVideoCategory, setLabVideoCategory] = useState('Architecture Deep-Dive');
   const [labVideoDuration, setLabVideoDuration] = useState('18:45');
   const [isSubmittingLabVideo, setIsSubmittingLabVideo] = useState(false);
+
+  // Client Projects Form & Management State
+  const [clientProjects, setClientProjects] = useState<ClientProject[]>([]);
+  const [projName, setProjName] = useState('');
+  const [projClientEmail, setProjClientEmail] = useState('');
+  const [projTotalValue, setProjTotalValue] = useState('$4,500');
+  const [projStatus, setProjStatus] = useState<'ACTIVE' | 'COMPLETED'>('ACTIVE');
+  const [projDescription, setProjDescription] = useState('');
+  const [projMilestones, setProjMilestones] = useState<Milestone[]>([
+    {
+      id: 'm-1',
+      title: 'Milestone 01: Cloud Run Container & Custom Subdomain',
+      amount: '$1,500',
+      description: 'GCP Cloud Run server cluster provisioning, DNS first-party subdomain mapping (data.brand.com), and SSL TLS handshake.',
+      status: 'PAID',
+      paymentUrl: 'https://buy.stripe.com/test_m1'
+    },
+    {
+      id: 'm-2',
+      title: 'Milestone 02: Meta CAPI Deduplication & Event Match Quality 8.5+',
+      amount: '$1,800',
+      description: 'Server GTM tagging configuration, user data SHA-256 hashing, and browser/server event_id deduplication.',
+      status: 'PENDING',
+      paymentUrl: 'https://buy.stripe.com/test_m2'
+    }
+  ]);
+  const [isSubmittingProject, setIsSubmittingProject] = useState(false);
 
   // Shared Upload & Submitting State
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -343,6 +374,33 @@ export const AdminDashboard: React.FC = () => {
         } catch (e) {
           console.warn('Firestore lab_videos getDocs notice:', e);
           setLabVideos(DEFAULT_LAB_VIDEOS);
+        }
+      } else if (activeTab === 'client_projects') {
+        try {
+          const colRef = collection(db, 'projects');
+          const snapshot = await getDocs(colRef);
+          if (!snapshot.empty) {
+            const fetched: ClientProject[] = snapshot.docs.map((docSnap) => {
+              const data = docSnap.data();
+              return {
+                id: docSnap.id,
+                name: data.name || '',
+                clientEmail: data.clientEmail || '',
+                totalValue: data.totalValue || '$0',
+                status: data.status || 'ACTIVE',
+                milestones: Array.isArray(data.milestones) ? data.milestones : [],
+                description: data.description || '',
+                createdAt: data.createdAt,
+                updatedAt: data.updatedAt
+              };
+            });
+            setClientProjects(fetched);
+          } else {
+            setClientProjects([]);
+          }
+        } catch (e) {
+          console.warn('Firestore projects getDocs notice:', e);
+          setClientProjects([]);
         }
       }
     } catch (err: unknown) {
@@ -891,6 +949,199 @@ export const AdminDashboard: React.FC = () => {
     });
   };
 
+  const handleAddMilestoneRow = () => {
+    const nextIdx = projMilestones.length + 1;
+    setProjMilestones((prev) => [
+      ...prev,
+      {
+        id: `m-${Date.now()}-${nextIdx}`,
+        title: `Milestone ${String(nextIdx).padStart(2, '0')}: `,
+        amount: '$1,500',
+        description: '',
+        status: 'PENDING',
+        paymentUrl: ''
+      }
+    ]);
+  };
+
+  const handleRemoveMilestoneRow = (index: number) => {
+    if (projMilestones.length <= 1) {
+      setFeedback({
+        type: 'error',
+        message: 'A project must retain at least one milestone.'
+      });
+      return;
+    }
+    setProjMilestones((prev) => prev.filter((_, idx) => idx !== index));
+  };
+
+  const handleMilestoneRowChange = (index: number, field: keyof Milestone, value: string) => {
+    setProjMilestones((prev) =>
+      prev.map((m, idx) => {
+        if (idx !== index) return m;
+        return {
+          ...m,
+          [field]: value
+        };
+      })
+    );
+  };
+
+  const handleCreateClientProject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!projName.trim() || !projClientEmail.trim() || !projTotalValue.trim()) {
+      setFeedback({
+        type: 'error',
+        message: 'Please provide Project Name, Client Email, and Total Value.'
+      });
+      return;
+    }
+
+    if (projMilestones.length === 0) {
+      setFeedback({
+        type: 'error',
+        message: 'Please configure at least one milestone for this project.'
+      });
+      return;
+    }
+
+    setIsSubmittingProject(true);
+    setFeedback(null);
+
+    const clientEmailClean = projClientEmail.trim().toLowerCase();
+
+    const newProjectData = {
+      name: projName.trim(),
+      clientEmail: clientEmailClean,
+      totalValue: projTotalValue.trim(),
+      status: projStatus,
+      description: projDescription.trim(),
+      milestones: projMilestones.map((m, idx) => ({
+        id: m.id || `ms-${Date.now()}-${idx}`,
+        title: m.title.trim() || `Milestone ${idx + 1}`,
+        amount: m.amount.trim() || '$1,000',
+        description: m.description?.trim() || '',
+        status: m.status || 'PENDING',
+        paymentUrl: m.paymentUrl?.trim() || ''
+      })),
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    };
+
+    try {
+      const docRef = await addDoc(collection(db, 'projects'), newProjectData);
+      const created: ClientProject = {
+        id: docRef.id,
+        ...newProjectData
+      };
+      setClientProjects((prev) => [created, ...prev]);
+      setFeedback({
+        type: 'success',
+        message: `Client project "${created.name}" for ${clientEmailClean} successfully published to Firestore collection "projects".`
+      });
+
+      // Reset form
+      setProjName('');
+      setProjClientEmail('');
+      setProjDescription('');
+      setProjMilestones([
+        {
+          id: `m-${Date.now()}-1`,
+          title: 'Milestone 01: Architecture Staging & Deployment',
+          amount: '$1,500',
+          description: '',
+          status: 'PENDING',
+          paymentUrl: ''
+        }
+      ]);
+    } catch (err) {
+      console.error('Error adding client project:', err);
+      const localId = `local-proj-${Date.now()}`;
+      setClientProjects((prev) => [
+        {
+          id: localId,
+          ...newProjectData
+        },
+        ...prev
+      ]);
+      setFeedback({
+        type: 'success',
+        message: `Project "${newProjectData.name}" added to local preview.`
+      });
+    } finally {
+      setIsSubmittingProject(false);
+    }
+  };
+
+  const handleDeleteClientProject = async (itemId: string) => {
+    if (!window.confirm('Are you sure you want to delete this client project document?')) return;
+    setIsDeletingId(itemId);
+    setFeedback(null);
+    try {
+      await deleteDoc(doc(db, 'projects', itemId));
+    } catch (e) {
+      console.warn('Firestore projects delete error:', e);
+    }
+    setClientProjects((prev) => prev.filter((item) => item.id !== itemId));
+    setIsDeletingId(null);
+    setFeedback({
+      type: 'success',
+      message: 'Client project document deleted successfully.'
+    });
+  };
+
+  const handleToggleMilestoneStatusInDoc = async (projectId: string, milestoneIndex: number) => {
+    const targetProject = clientProjects.find((p) => p.id === projectId);
+    if (!targetProject) return;
+
+    const updatedMilestones = targetProject.milestones.map((m, idx) => {
+      if (idx !== milestoneIndex) return m;
+      const nextStatus = m.status === 'PAID' ? 'PENDING' : 'PAID';
+      return {
+        ...m,
+        status: nextStatus as Milestone['status']
+      };
+    });
+
+    try {
+      await updateDoc(doc(db, 'projects', projectId), {
+        milestones: updatedMilestones,
+        updatedAt: serverTimestamp()
+      });
+    } catch (err) {
+      console.warn('Firestore updateDoc notice:', err);
+    }
+
+    setClientProjects((prev) =>
+      prev.map((p) => (p.id === projectId ? { ...p, milestones: updatedMilestones } : p))
+    );
+
+    setFeedback({
+      type: 'success',
+      message: `Milestone status updated for project "${targetProject.name}".`
+    });
+  };
+
+  const handleToggleProjectStatusInDoc = async (projectId: string, newStatus: 'ACTIVE' | 'COMPLETED') => {
+    try {
+      await updateDoc(doc(db, 'projects', projectId), {
+        status: newStatus,
+        updatedAt: serverTimestamp()
+      });
+    } catch (err) {
+      console.warn('Firestore updateDoc status notice:', err);
+    }
+
+    setClientProjects((prev) =>
+      prev.map((p) => (p.id === projectId ? { ...p, status: newStatus } : p))
+    );
+
+    setFeedback({
+      type: 'success',
+      message: `Project deployment status changed to ${newStatus}.`
+    });
+  };
+
   const handleLogout = async () => {
     try {
       await signOut(auth);
@@ -1094,6 +1345,57 @@ export const AdminDashboard: React.FC = () => {
               <span>Labs &amp; R&amp;D</span>
               <span className="text-xs font-mono px-1.5 py-0.5 rounded bg-slate-950/60 text-slate-300">
                 {labProjects.length + labVideos.length}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              id="admin-tab-client-projects"
+              role="tab"
+              aria-selected={activeTab === 'client_projects'}
+              onClick={() => {
+                setActiveTab('client_projects');
+                setFeedback(null);
+              }}
+              className={`min-h-[44px] px-5 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 ${
+                activeTab === 'client_projects'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+              }`}
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
+                <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+              </svg>
+              <span>Client Projects</span>
+              <span className="text-xs font-mono px-1.5 py-0.5 rounded bg-slate-950/60 text-slate-300">
+                {clientProjects.length}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              id="admin-tab-order-pipeline"
+              role="tab"
+              aria-selected={activeTab === 'orders'}
+              onClick={() => {
+                setActiveTab('orders');
+                setFeedback(null);
+              }}
+              className={`min-h-[44px] px-5 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 ${
+                activeTab === 'orders'
+                  ? 'bg-amber-600 text-white shadow-md shadow-amber-600/30'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+              }`}
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="9" cy="21" r="1" />
+                <circle cx="20" cy="21" r="1" />
+                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+              </svg>
+              <span>Order Management</span>
+              <span className="text-xs font-mono px-1.5 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800">
+                Pipeline
               </span>
             </button>
           </div>
@@ -2338,6 +2640,504 @@ export const AdminDashboard: React.FC = () => {
               </div>
             </div>
           </div>
+        )}
+
+        {/* ============================================================ */}
+        {/* TAB 5: CLIENT PROJECTS MANAGEMENT */}
+        {/* ============================================================ */}
+        {activeTab === 'client_projects' && (
+          <div id="admin-client-projects-section" className="space-y-10">
+            {/* Section Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-900/90 to-indigo-950/40 border border-slate-800 shadow-xl">
+              <div>
+                <div className="flex items-center gap-2 text-indigo-400 text-xs font-mono uppercase tracking-wider mb-1">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>SaaS Client Infrastructure</span>
+                </div>
+                <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
+                  Client Project Deployments &amp; Milestones
+                </h2>
+                <p className="text-xs sm:text-sm text-slate-400 max-w-2xl mt-1">
+                  Create architecture projects mapped to client emails. Configure sequential milestones, escrow payment links (Stripe / Payoneer), and track deliverable releases.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Link
+                  to="/client/dashboard"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-4 py-2 rounded-xl bg-slate-950 border border-slate-700 hover:border-indigo-500 text-xs font-mono text-indigo-300 hover:text-white transition-all flex items-center gap-2 min-h-[42px]"
+                >
+                  <span>Open Client Portal View</span>
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                    <polyline points="15 3 21 3 21 9" />
+                    <line x1="10" y1="14" x2="21" y2="3" />
+                  </svg>
+                </Link>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
+              {/* Left Column: Create Project Form */}
+              <div className="xl:col-span-6 space-y-6">
+                <div className="p-6 sm:p-7 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl space-y-6">
+                  <div className="border-b border-slate-800 pb-4">
+                    <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                      <svg className="w-5 h-5 text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <line x1="12" y1="5" x2="12" y2="19" />
+                        <line x1="5" y1="12" x2="19" y2="12" />
+                      </svg>
+                      <span>Create Client Architecture Project</span>
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Stores project document in <code className="text-indigo-400 font-mono">projects</code> collection with relational binding to client email.
+                    </p>
+                  </div>
+
+                  <form onSubmit={handleCreateClientProject} className="space-y-5">
+                    {/* Project Name */}
+                    <div>
+                      <label htmlFor="admin-proj-name" className="block text-xs font-mono text-slate-300 mb-1.5 font-semibold">
+                        Project Name *
+                      </label>
+                      <input
+                        id="admin-proj-name"
+                        type="text"
+                        required
+                        value={projName}
+                        onChange={(e) => setProjName(e.target.value)}
+                        placeholder="e.g., Omnichannel Server-Side CAPI & Stape Cloud"
+                        className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-600 text-sm focus:outline-none focus:border-indigo-500 font-sans"
+                      />
+                    </div>
+
+                    {/* Client Email & Total Value Row */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label htmlFor="admin-proj-email" className="block text-xs font-mono text-slate-300 mb-1.5 font-semibold">
+                          Client Email (Relational Key) *
+                        </label>
+                        <input
+                          id="admin-proj-email"
+                          type="email"
+                          required
+                          value={projClientEmail}
+                          onChange={(e) => setProjClientEmail(e.target.value)}
+                          placeholder="client@brand.com"
+                          className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-600 text-sm focus:outline-none focus:border-indigo-500 font-mono"
+                        />
+                        <span className="text-[11px] font-mono text-slate-400 mt-1 block">
+                          Must match client login email
+                        </span>
+                      </div>
+
+                      <div>
+                        <label htmlFor="admin-proj-value" className="block text-xs font-mono text-slate-300 mb-1.5 font-semibold">
+                          Total Value *
+                        </label>
+                        <input
+                          id="admin-proj-value"
+                          type="text"
+                          required
+                          value={projTotalValue}
+                          onChange={(e) => setProjTotalValue(e.target.value)}
+                          placeholder="$4,500"
+                          className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-600 text-sm focus:outline-none focus:border-indigo-500 font-mono"
+                        />
+                        <span className="text-[11px] font-mono text-slate-400 mt-1 block">
+                          Overall contract value
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Status & Scope */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label htmlFor="admin-proj-status" className="block text-xs font-mono text-slate-300 mb-1.5 font-semibold">
+                          Deployment Status
+                        </label>
+                        <select
+                          id="admin-proj-status"
+                          value={projStatus}
+                          onChange={(e) => setProjStatus(e.target.value as 'ACTIVE' | 'COMPLETED')}
+                          className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-indigo-500 font-mono"
+                        >
+                          <option value="ACTIVE">ACTIVE (In Production)</option>
+                          <option value="COMPLETED">COMPLETED (Handed Off)</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label htmlFor="admin-proj-desc" className="block text-xs font-mono text-slate-300 mb-1.5 font-semibold">
+                          Architecture Summary
+                        </label>
+                        <input
+                          id="admin-proj-desc"
+                          type="text"
+                          value={projDescription}
+                          onChange={(e) => setProjDescription(e.target.value)}
+                          placeholder="Brief technical scope"
+                          className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-600 text-sm focus:outline-none focus:border-indigo-500 font-sans"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Dynamic Milestones Form Section */}
+                    <div className="space-y-4 pt-4 border-t border-slate-800">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                            <span>Project Milestones &amp; Escrow URLs</span>
+                            <span className="text-xs font-mono px-2 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-800">
+                              {projMilestones.length}
+                            </span>
+                          </h4>
+                          <p className="text-[11px] text-slate-400">
+                            Configure deliverable items and funding links.
+                          </p>
+                        </div>
+
+                        <button
+                          type="button"
+                          id="admin-add-milestone-btn"
+                          onClick={handleAddMilestoneRow}
+                          className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-mono font-semibold transition-all flex items-center gap-1.5 min-h-[36px]"
+                        >
+                          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <line x1="12" y1="5" x2="12" y2="19" />
+                            <line x1="5" y1="12" x2="19" y2="12" />
+                          </svg>
+                          <span>Add Milestone</span>
+                        </button>
+                      </div>
+
+                      <div className="space-y-4 max-h-[420px] overflow-y-auto pr-1">
+                        {projMilestones.map((m, idx) => (
+                          <div
+                            key={m.id || idx}
+                            className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3 relative group"
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-mono font-bold text-indigo-400">
+                                Milestone #{idx + 1}
+                              </span>
+
+                              <div className="flex items-center gap-2">
+                                <select
+                                  value={m.status}
+                                  onChange={(e) =>
+                                    handleMilestoneRowChange(idx, 'status', e.target.value)
+                                  }
+                                  className={`text-xs font-mono px-2.5 py-1 rounded border focus:outline-none ${
+                                    m.status === 'PAID'
+                                      ? 'bg-emerald-950 text-emerald-300 border-emerald-800'
+                                      : 'bg-amber-950 text-amber-300 border-amber-800'
+                                  }`}
+                                >
+                                  <option value="PENDING">PENDING</option>
+                                  <option value="PAID">PAID</option>
+                                </select>
+
+                                {projMilestones.length > 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveMilestoneRow(idx)}
+                                    className="p-1 rounded text-slate-500 hover:text-rose-400 hover:bg-rose-950/40 transition-colors"
+                                    title="Remove milestone"
+                                  >
+                                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                      <line x1="18" y1="6" x2="6" y2="18" />
+                                      <line x1="6" y1="6" x2="18" y2="18" />
+                                    </svg>
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                              <div className="sm:col-span-2">
+                                <input
+                                  type="text"
+                                  required
+                                  value={m.title}
+                                  onChange={(e) =>
+                                    handleMilestoneRowChange(idx, 'title', e.target.value)
+                                  }
+                                  placeholder="Milestone Title"
+                                  className="w-full px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-white placeholder-slate-600 text-xs focus:outline-none focus:border-indigo-500"
+                                />
+                              </div>
+                              <div>
+                                <input
+                                  type="text"
+                                  required
+                                  value={m.amount}
+                                  onChange={(e) =>
+                                    handleMilestoneRowChange(idx, 'amount', e.target.value)
+                                  }
+                                  placeholder="Amount (e.g. $1,500)"
+                                  className="w-full px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-white placeholder-slate-600 text-xs font-mono focus:outline-none focus:border-indigo-500"
+                                />
+                              </div>
+                            </div>
+
+                            <div>
+                              <input
+                                type="url"
+                                value={m.paymentUrl || ''}
+                                onChange={(e) =>
+                                  handleMilestoneRowChange(idx, 'paymentUrl', e.target.value)
+                                }
+                                placeholder="Payment URL (Stripe Checkout / Payoneer link)"
+                                className="w-full px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-white placeholder-slate-600 text-xs font-mono focus:outline-none focus:border-indigo-500"
+                              />
+                            </div>
+
+                            <div>
+                              <textarea
+                                rows={2}
+                                value={m.description || ''}
+                                onChange={(e) =>
+                                  handleMilestoneRowChange(idx, 'description', e.target.value)
+                                }
+                                placeholder="Deliverable details (what will be deployed for this milestone)..."
+                                className="w-full px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-white placeholder-slate-600 text-xs focus:outline-none focus:border-indigo-500 font-sans resize-none"
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Submit Button */}
+                    <div className="pt-2">
+                      <button
+                        type="submit"
+                        id="admin-create-project-submit"
+                        disabled={isSubmittingProject}
+                        className="w-full py-3 px-6 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white font-mono text-sm font-bold shadow-lg shadow-indigo-950/50 transition-all flex items-center justify-center gap-2 disabled:opacity-50 min-h-[48px] cursor-pointer active:scale-[0.99]"
+                      >
+                        {isSubmittingProject ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            <span>Publishing to Firestore 'projects'...</span>
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                              <polyline points="17 21 17 13 7 13 7 21" />
+                              <polyline points="7 3 7 8 15 8" />
+                            </svg>
+                            <span>Publish Project to Client Account</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+
+              {/* Right Column: Existing Client Projects */}
+              <div className="xl:col-span-6 space-y-6">
+                <div className="p-6 sm:p-7 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl space-y-6">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+                    <div>
+                      <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                        <span>Active Projects in Database</span>
+                        <span className="text-xs font-mono px-2 py-0.5 rounded bg-slate-950 text-indigo-300 border border-slate-800">
+                          {clientProjects.length}
+                        </span>
+                      </h3>
+                      <p className="text-xs text-slate-400 mt-1">
+                        Live records in Firestore collection <code className="text-indigo-400 font-mono">projects</code>
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => fetchCollectionItems()}
+                      className="px-3 py-1.5 rounded-lg bg-slate-950 hover:bg-slate-800 text-slate-300 text-xs font-mono transition-colors flex items-center gap-1.5 border border-slate-800 min-h-[36px]"
+                    >
+                      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M23 4v6h-6" />
+                        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+                      </svg>
+                      <span>Refresh</span>
+                    </button>
+                  </div>
+
+                  {clientProjects.length === 0 ? (
+                    <div className="p-8 rounded-xl bg-slate-950 border border-dashed border-slate-800 text-center space-y-2">
+                      <p className="text-sm font-semibold text-slate-300">No client projects registered yet.</p>
+                      <p className="text-xs text-slate-400">
+                        Use the form on the left to publish your first client architecture deployment with milestones.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4 max-h-[750px] overflow-y-auto pr-1">
+                      {clientProjects.map((p) => {
+                        const totalM = p.milestones?.length || 0;
+                        const paidM = p.milestones?.filter((m) => m.status === 'PAID').length || 0;
+                        const pct = totalM > 0 ? Math.round((paidM / totalM) * 100) : 0;
+
+                        return (
+                          <div
+                            key={p.id}
+                            id={`admin-project-item-${p.id}`}
+                            className="p-5 rounded-xl bg-slate-950 border border-slate-800 hover:border-slate-700 transition-all space-y-4"
+                          >
+                            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                              <div>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span
+                                    className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border ${
+                                      p.status === 'ACTIVE'
+                                        ? 'bg-indigo-950 text-indigo-300 border-indigo-800'
+                                        : 'bg-emerald-950 text-emerald-300 border-emerald-800'
+                                    }`}
+                                  >
+                                    {p.status}
+                                  </span>
+                                  <span className="text-xs font-mono text-slate-400">
+                                    Val: <strong className="text-white">{p.totalValue}</strong>
+                                  </span>
+                                </div>
+                                <h4 className="text-base font-bold text-white mt-1">{p.name}</h4>
+                                <div className="text-xs font-mono text-indigo-400 mt-0.5">
+                                  Client: {p.clientEmail}
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleToggleProjectStatusInDoc(
+                                      p.id,
+                                      p.status === 'ACTIVE' ? 'COMPLETED' : 'ACTIVE'
+                                    )
+                                  }
+                                  className="px-2.5 py-1 rounded bg-slate-900 hover:bg-slate-800 text-[11px] font-mono text-slate-300 border border-slate-700 transition-colors"
+                                  title="Toggle status"
+                                >
+                                  Set {p.status === 'ACTIVE' ? 'COMPLETED' : 'ACTIVE'}
+                                </button>
+
+                                <button
+                                  type="button"
+                                  disabled={isDeletingId === p.id}
+                                  onClick={() => handleDeleteClientProject(p.id)}
+                                  className="p-1.5 rounded bg-slate-900 hover:bg-rose-950/50 text-slate-400 hover:text-rose-300 border border-slate-800 transition-colors disabled:opacity-50"
+                                  title="Delete project"
+                                >
+                                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <polyline points="3 6 5 6 21 6" />
+                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                  </svg>
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Progress bar */}
+                            <div className="space-y-1">
+                              <div className="flex items-center justify-between text-[11px] font-mono text-slate-400">
+                                <span>Milestones: {paidM} of {totalM} Cleared</span>
+                                <span>{pct}%</span>
+                              </div>
+                              <div className="w-full h-1.5 rounded-full bg-slate-900 overflow-hidden">
+                                <div
+                                  className="h-full bg-gradient-to-r from-indigo-500 to-emerald-500 rounded-full"
+                                  style={{ width: `${pct}%` }}
+                                />
+                              </div>
+                            </div>
+
+                            {/* Milestones list with inline status toggle */}
+                            <div className="space-y-2 pt-2 border-t border-slate-900">
+                              <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400 block">
+                                Milestones &amp; Escrow Toggle:
+                              </span>
+
+                              <div className="space-y-1.5">
+                                {p.milestones?.map((m, mIdx) => (
+                                  <div
+                                    key={m.id || mIdx}
+                                    className="p-2.5 rounded-lg bg-slate-900/90 border border-slate-800/80 flex items-center justify-between gap-2 text-xs"
+                                  >
+                                    <div className="truncate flex-1">
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="font-semibold text-white truncate">
+                                          {m.title}
+                                        </span>
+                                        <span className="font-mono text-indigo-400 text-[11px] shrink-0">
+                                          ({m.amount})
+                                        </span>
+                                      </div>
+                                      {m.paymentUrl && (
+                                        <a
+                                          href={m.paymentUrl}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="text-[10px] font-mono text-slate-400 hover:text-indigo-300 truncate block mt-0.5"
+                                        >
+                                          Checkout Link: {m.paymentUrl}
+                                        </a>
+                                      )}
+                                    </div>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => handleToggleMilestoneStatusInDoc(p.id, mIdx)}
+                                      className={`px-2 py-1 rounded text-[10px] font-mono font-bold border transition-colors shrink-0 ${
+                                        m.status === 'PAID'
+                                          ? 'bg-emerald-950 text-emerald-300 border-emerald-800 hover:bg-amber-950 hover:text-amber-300 hover:border-amber-800'
+                                          : 'bg-amber-950 text-amber-300 border-amber-800 hover:bg-emerald-950 hover:text-emerald-300 hover:border-emerald-800'
+                                      }`}
+                                      title="Click to toggle PAID / PENDING"
+                                    >
+                                      {m.status} (Toggle)
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Link to view in client portal */}
+                            <div className="pt-2 flex items-center justify-between">
+                              <span className="text-[10px] font-mono text-slate-500">
+                                Doc ID: {p.id}
+                              </span>
+                              <Link
+                                to={`/client/project/${p.id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs font-mono text-indigo-400 hover:text-indigo-300 flex items-center gap-1"
+                              >
+                                <span>Preview Portal</span>
+                                <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                                  <polyline points="15 3 21 3 21 9" />
+                                  <line x1="10" y1="14" x2="21" y2="3" />
+                                </svg>
+                              </Link>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 6: NATIVE ORDER-TO-DELIVERY PIPELINE */}
+        {activeTab === 'orders' && (
+          <OrderManagement />
         )}
       </main>
     </div>

@@ -82,6 +82,84 @@ export interface LabVideo {
   createdAt?: unknown;
 }
 
+export type MilestoneStatus = 'PAID' | 'PENDING';
+export type ProjectStatus = 'ACTIVE' | 'COMPLETED';
+export type OrderStatus = 'PENDING_REVIEW' | 'AWAITING_FUNDS' | 'ACTIVE' | 'DELIVERED' | 'COMPLETED' | 'CANCELLED';
+
+export interface DeliverableItem {
+  id?: string;
+  title: string;
+  url: string;
+  type?: 'gtm_export' | 'github' | 'cloud_run' | 'docs' | 'looker' | 'other';
+  notes?: string;
+}
+
+export interface Order {
+  id: string;
+  clientEmail: string;
+  clientName?: string;
+  companyName?: string;
+  websiteUrl?: string;
+  whatsappNumber?: string;
+  serviceId?: string;
+  serviceTitle: string;
+  serviceCategory?: string;
+  projectDetails: string;
+  status: OrderStatus;
+  
+  // Admin proposal specifications (set upon approval)
+  totalPrice?: string; // e.g. "$3,500"
+  paymentUrl?: string; // Direct Stripe / Payoneer checkout link
+  durationDays?: number; // e.g. 7 (days)
+  proposalNotes?: string;
+  approvedAt?: unknown;
+  
+  // Live project delivery specifications (set upon Start Project)
+  startedAt?: unknown;
+  deadlineDate?: string; // ISO timestamp string of delivery deadline
+  
+  // Final delivery stage specifications (set upon Delivery submission)
+  deliverables?: DeliverableItem[];
+  deliverySummary?: string;
+  deliveredAt?: unknown;
+  
+  // Client feedback & completion stage
+  revisionNotes?: string;
+  revisionCount?: number;
+  completedAt?: unknown;
+  
+  notificationSent?: boolean;
+  createdAt?: unknown;
+  updatedAt?: unknown;
+}
+
+export interface Milestone {
+  id: string;
+  title: string;
+  amount: string; // e.g. "$1,500" or "1500"
+  description?: string;
+  status: MilestoneStatus;
+  paymentUrl?: string; // Stripe / Payoneer direct checkout URL
+  completedAt?: unknown;
+}
+
+export interface ClientProject {
+  id: string;
+  name: string;
+  clientEmail: string;
+  totalValue: string;
+  status: ProjectStatus;
+  milestones: Milestone[];
+  description?: string;
+  createdAt?: unknown;
+  updatedAt?: unknown;
+}
+
+export const AUTHORIZED_ADMIN_EMAILS = [
+  'iadeshchandra@gmail.com',
+  'poranray7744@gmail.com'
+];
+
 export const FIVERR_PROFILE_URL = 'https://www.fiverr.com/adesh_chandra';
 export const CALENDLY_DISCOVERY_URL = 'https://calendly.com/syncops/discovery-call';
 export const APPLICATION_FORM_URL = 'https://tally.so/r/w8ZkNx';
