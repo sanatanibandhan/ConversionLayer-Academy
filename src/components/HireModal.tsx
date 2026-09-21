@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { FIVERR_PROFILE_URL } from '../data/syncOpsData';
 
 interface HireModalProps {
   isOpen: boolean;
@@ -36,25 +37,21 @@ export const HireModal: React.FC<HireModalProps> = ({
   return (
     <div
       id="hire-modal-backdrop"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xl animate-fadeIn"
       role="dialog"
       aria-modal="true"
-      aria-labelledby="hire-modal-title"
     >
       <div
-        id="hire-modal-container"
-        className="relative w-full max-w-xl rounded-2xl bg-slate-900 border border-slate-800 p-6 sm:p-8 shadow-2xl overflow-hidden"
+        id="hire-modal-card"
+        className="relative w-full max-w-lg rounded-2xl bg-slate-900/95 border border-slate-800/80 p-6 sm:p-8 shadow-2xl shadow-indigo-950/50 backdrop-blur-2xl transition-all"
       >
-        {/* Accent top border */}
-        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500 via-indigo-400 to-emerald-400" />
-
-        {/* Close Button (Min 44px touch target) */}
+        {/* Close Button */}
         <button
           type="button"
           id="hire-modal-close-btn"
           onClick={handleResetAndClose}
-          className="absolute top-4 right-4 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors"
-          aria-label="Close dialog"
+          aria-label="Close modal"
+          className="absolute top-4 right-4 w-9 h-9 flex items-center justify-center rounded-xl bg-slate-950/80 text-slate-400 hover:text-white border border-slate-800/80 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 active:scale-95"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <line x1="18" y1="6" x2="6" y2="18" />
@@ -66,11 +63,11 @@ export const HireModal: React.FC<HireModalProps> = ({
           <div>
             {/* Seller Credential Ribbon */}
             <div className="flex items-center gap-2 mb-3">
-              <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800">
+              <span className="text-xs font-mono font-bold px-2.5 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-800/80">
                 FIVERR LEVEL 2 SELLER
               </span>
               <span className="text-xs font-mono text-slate-400">
-                ★ 5.0 (142 Reviews)
+                ★ 5.0 Rating
               </span>
             </div>
 
@@ -80,8 +77,8 @@ export const HireModal: React.FC<HireModalProps> = ({
             >
               Order Service: {serviceTitle}
             </h3>
-            <p className="text-sm text-slate-400 mb-6">
-              Connect directly on Fiverr or submit your project details below to receive a custom proposal within 2 hours.
+            <p className="text-sm text-slate-400 mb-6 font-normal">
+              Connect directly on Fiverr or submit your project details below to receive a custom architecture proposal.
             </p>
 
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -164,17 +161,17 @@ export const HireModal: React.FC<HireModalProps> = ({
                 <button
                   type="submit"
                   id="hire-submit-inquiry-btn"
-                  className="flex-1 min-h-[44px] inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm shadow-lg shadow-indigo-600/30 transition-all focus:outline-none focus:ring-2 focus:ring-indigo-400 active:scale-[0.98]"
+                  className="flex-1 min-h-[44px] inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-b from-indigo-500 to-indigo-600 hover:from-indigo-400 hover:to-indigo-500 text-white font-bold text-sm shadow-xl shadow-indigo-600/30 border border-indigo-400/20 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-400 active:scale-95"
                 >
                   <span>Submit Order Inquiry</span>
                 </button>
 
                 <a
-                  href="https://www.fiverr.com"
+                  href={FIVERR_PROFILE_URL}
                   target="_blank"
                   rel="noopener noreferrer"
                   id="hire-direct-fiverr-link"
-                  className="min-h-[44px] inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-slate-950 hover:bg-slate-800 text-slate-200 border border-slate-800 font-semibold text-sm transition-all focus:outline-none focus:ring-2 focus:ring-slate-600"
+                  className="min-h-[44px] inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-slate-950 hover:bg-slate-800 text-slate-200 border border-slate-800 font-semibold text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-slate-600 active:scale-95"
                 >
                   <span>Open Fiverr Directly</span>
                   <svg className="w-4 h-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -188,25 +185,30 @@ export const HireModal: React.FC<HireModalProps> = ({
           </div>
         ) : (
           <div id="hire-success-view" className="py-8 text-center space-y-4">
-            <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 mx-auto flex items-center justify-center">
+            <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 mx-auto flex items-center justify-center shadow-lg">
               <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <polyline points="20 6 9 17 4 12" />
               </svg>
             </div>
-            <h3 className="text-2xl font-bold text-white">Inquiry Dispatched!</h3>
-            <p className="text-slate-300 text-sm max-w-sm mx-auto leading-relaxed">
-              We received your tracking inquiry for <span className="font-mono text-indigo-300 font-semibold">{domain || 'your store'}</span>.
-              A Level 2 engineer will review your signal leakage and reply at <span className="text-white font-medium">{contactEmail}</span>.
+            <h4 className="text-xl font-bold text-white">Inquiry Received</h4>
+            <p className="text-sm text-slate-400 max-w-sm mx-auto leading-relaxed">
+              We have recorded your tracking consultation details for{' '}
+              <span className="text-white font-mono">{domain || 'your store'}</span>. We will review your signal architecture and reach out via{' '}
+              <span className="text-indigo-400">{contactEmail || 'your contact method'}</span> within 2 hours.
             </p>
-            <div className="pt-4">
-              <button
-                type="button"
-                id="hire-success-close-btn"
-                onClick={handleResetAndClose}
-                className="min-h-[44px] px-6 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-sm transition-all"
+            <div className="pt-2">
+              <a
+                href={FIVERR_PROFILE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-b from-indigo-500 to-indigo-600 hover:from-indigo-400 hover:to-indigo-500 text-white text-sm font-semibold shadow-lg shadow-indigo-600/30 border border-indigo-400/20 active:scale-95 transition-all"
               >
-                Back to Academy
-              </button>
+                <span>Continue on Fiverr ({FIVERR_PROFILE_URL.replace('https://www.', '')})</span>
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                  <polyline points="15 3 21 3 21 9" />
+                </svg>
+              </a>
             </div>
           </div>
         )}

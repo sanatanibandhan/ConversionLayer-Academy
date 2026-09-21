@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { FIVERR_PROFILE_URL } from '../data/syncOpsData';
 
 interface NavbarProps {
   onOpenHireModal: (serviceName?: string) => void;
@@ -18,7 +19,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenHireModal }) => {
   return (
     <header
       id="main-navbar"
-      className="sticky top-0 z-50 w-full border-b border-slate-800/80 backdrop-blur-md bg-slate-950/80 transition-all duration-200"
+      className="sticky top-0 z-50 w-full border-b border-slate-800/50 backdrop-blur-xl bg-slate-950/80 shadow-lg shadow-black/25 transition-all duration-300"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-20">
@@ -26,10 +27,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenHireModal }) => {
           <a
             href="#"
             id="nav-logo-link"
-            className="flex items-center gap-3 group focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded-lg p-1"
+            className="flex items-center gap-3 group focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded-xl p-1 transition-transform active:scale-95"
           >
-            <div className="w-10 h-10 rounded-xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400 group-hover:bg-indigo-600/30 group-hover:border-indigo-400 transition-all">
-              {/* Tech Signal / Layered Nodes SVG */}
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500/20 to-indigo-700/10 border border-indigo-500/40 flex items-center justify-center text-indigo-400 group-hover:bg-indigo-600/30 group-hover:border-indigo-400 group-hover:text-indigo-300 transition-all duration-300 shadow-inner">
               <svg
                 className="w-5 h-5"
                 viewBox="0 0 24 24"
@@ -45,14 +45,14 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenHireModal }) => {
               </svg>
             </div>
             <div className="flex flex-col">
-              <span className="text-white font-bold text-lg sm:text-xl tracking-tight flex items-center gap-1.5">
-                ConversionLayer
-                <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-indigo-950 border border-indigo-700/50 text-indigo-300">
-                  Academy
+              <span className="text-white font-bold text-lg sm:text-xl tracking-tight flex items-center gap-2">
+                SyncOps Studio
+                <span className="text-[11px] font-mono font-semibold px-2 py-0.5 rounded-full bg-indigo-950/80 border border-indigo-700/50 text-indigo-300 shadow-sm">
+                  Engineering
                 </span>
               </span>
-              <span className="text-xs text-slate-400 font-mono tracking-wider">
-                SERVER-SIDE SIGNAL STACK
+              <span className="text-[11px] text-slate-400 font-mono tracking-wider">
+                SERVER-SIDE TRACKING &amp; CAPI
               </span>
             </div>
           </a>
@@ -62,40 +62,41 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenHireModal }) => {
             <a
               href="#auditor-section"
               id="nav-link-audit"
-              className="text-slate-300 hover:text-white text-sm font-medium transition-colors py-2"
+              className="text-slate-300 hover:text-white text-sm font-medium transition-colors py-2 relative hover:after:w-full after:w-0 after:h-0.5 after:bg-indigo-500 after:absolute after:bottom-0 after:left-0 after:transition-all"
             >
               Free Audit
             </a>
             <a
-              href="#courses-section"
-              id="nav-link-courses"
-              className="text-slate-300 hover:text-white text-sm font-medium transition-colors py-2"
+              href="#case-studies-section"
+              id="nav-link-case-studies"
+              className="text-slate-300 hover:text-white text-sm font-medium transition-colors py-2 relative hover:after:w-full after:w-0 after:h-0.5 after:bg-indigo-500 after:absolute after:bottom-0 after:left-0 after:transition-all"
             >
-              Courses
+              Case Studies
             </a>
             <a
               href="#services-section"
               id="nav-link-services"
-              className="text-slate-300 hover:text-white text-sm font-medium transition-colors py-2"
+              className="text-slate-300 hover:text-white text-sm font-medium transition-colors py-2 relative hover:after:w-full after:w-0 after:h-0.5 after:bg-indigo-500 after:absolute after:bottom-0 after:left-0 after:transition-all"
             >
-              DFY Services
+              Capabilities
             </a>
 
-            {/* Prominent "Hire on Fiverr" Button */}
-            <button
-              type="button"
+            {/* Global Fiverr Verified CTA */}
+            <a
+              href={FIVERR_PROFILE_URL}
+              target="_blank"
+              rel="noopener noreferrer"
               id="nav-btn-hire-fiverr"
-              onClick={() => onOpenHireModal()}
-              className="min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold shadow-md shadow-indigo-600/30 transition-all focus:outline-none focus:ring-2 focus:ring-indigo-400 active:scale-[0.98]"
+              className="min-h-[44px] inline-flex items-center justify-center gap-2.5 px-5 py-2.5 rounded-xl bg-gradient-to-b from-indigo-500 to-indigo-600 hover:from-indigo-400 hover:to-indigo-500 text-white text-sm font-semibold shadow-lg shadow-indigo-600/30 border border-indigo-400/30 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-400 active:scale-95"
             >
               <svg className="w-4 h-4 text-emerald-300" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h-2v-6h2v6zm4 0h-2v-6h2v6zm-2-8c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-4 0c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1z" />
               </svg>
               <span>Hire on Fiverr</span>
-              <span className="text-xs bg-indigo-900/80 text-indigo-200 px-1.5 py-0.5 rounded font-mono">
+              <span className="text-[11px] bg-indigo-950/90 text-indigo-200 px-1.5 py-0.5 rounded font-mono border border-indigo-700/40">
                 ★ 5.0
               </span>
-            </button>
+            </a>
           </nav>
 
           {/* Mobile Hamburger Button */}
@@ -106,10 +107,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenHireModal }) => {
               onClick={toggleMobileMenu}
               aria-expanded={isMobileMenuOpen}
               aria-label="Toggle Navigation Menu"
-              className="min-h-[44px] min-w-[44px] p-2.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 flex items-center justify-center transition-colors"
+              className="min-h-[44px] min-w-[44px] p-2.5 rounded-xl text-slate-300 hover:text-white hover:bg-slate-900 border border-transparent hover:border-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 flex items-center justify-center transition-colors active:scale-95"
             >
               {isMobileMenuOpen ? (
-                // Close SVG Icon
                 <svg
                   className="w-6 h-6"
                   viewBox="0 0 24 24"
@@ -123,7 +123,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenHireModal }) => {
                   <line x1="6" y1="6" x2="18" y2="18" />
                 </svg>
               ) : (
-                // Hamburger SVG Icon
                 <svg
                   className="w-6 h-6"
                   viewBox="0 0 24 24"
@@ -143,18 +142,18 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenHireModal }) => {
         </div>
       </div>
 
-      {/* Mobile Menu Drawer */}
+      {/* Mobile Menu Drawer Overlay */}
       {isMobileMenuOpen && (
         <div
           id="mobile-nav-drawer"
-          className="md:hidden border-b border-slate-800 bg-slate-950/95 backdrop-blur-xl px-4 pt-3 pb-6 animate-fadeIn transition-all"
+          className="md:hidden border-b border-slate-800/80 bg-slate-950/95 backdrop-blur-2xl px-5 pt-4 pb-8 shadow-2xl transition-all duration-300"
         >
-          <div className="flex flex-col space-y-2">
+          <div className="flex flex-col space-y-2.5">
             <a
               href="#auditor-section"
               id="mobile-nav-link-audit"
               onClick={closeMobileMenu}
-              className="min-h-[44px] flex items-center px-4 py-3 rounded-lg text-base font-medium text-slate-200 hover:text-white hover:bg-slate-900 transition-colors"
+              className="min-h-[44px] flex items-center px-4 py-3 rounded-xl text-base font-medium text-slate-200 hover:text-white hover:bg-slate-900/90 border border-transparent hover:border-slate-800 transition-colors"
             >
               <svg
                 className="w-5 h-5 mr-3 text-indigo-400"
@@ -169,10 +168,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenHireModal }) => {
               Free Audit
             </a>
             <a
-              href="#courses-section"
-              id="mobile-nav-link-courses"
+              href="#case-studies-section"
+              id="mobile-nav-link-case-studies"
               onClick={closeMobileMenu}
-              className="min-h-[44px] flex items-center px-4 py-3 rounded-lg text-base font-medium text-slate-200 hover:text-white hover:bg-slate-900 transition-colors"
+              className="min-h-[44px] flex items-center px-4 py-3 rounded-xl text-base font-medium text-slate-200 hover:text-white hover:bg-slate-900/90 border border-transparent hover:border-slate-800 transition-colors"
             >
               <svg
                 className="w-5 h-5 mr-3 text-indigo-400"
@@ -181,16 +180,15 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenHireModal }) => {
                 stroke="currentColor"
                 strokeWidth="2"
               >
-                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
               </svg>
-              Courses
+              Case Studies
             </a>
             <a
               href="#services-section"
               id="mobile-nav-link-services"
               onClick={closeMobileMenu}
-              className="min-h-[44px] flex items-center px-4 py-3 rounded-lg text-base font-medium text-slate-200 hover:text-white hover:bg-slate-900 transition-colors"
+              className="min-h-[44px] flex items-center px-4 py-3 rounded-xl text-base font-medium text-slate-200 hover:text-white hover:bg-slate-900/90 border border-transparent hover:border-slate-800 transition-colors"
             >
               <svg
                 className="w-5 h-5 mr-3 text-indigo-400"
@@ -204,24 +202,23 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenHireModal }) => {
                 <line x1="6" y1="6" x2="6.01" y2="6" />
                 <line x1="6" y1="18" x2="6.01" y2="18" />
               </svg>
-              DFY Services
+              Capabilities Matrix
             </a>
 
-            <div className="pt-2">
-              <button
-                type="button"
+            <div className="pt-3">
+              <a
+                href={FIVERR_PROFILE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
                 id="mobile-nav-btn-hire-fiverr"
-                onClick={() => {
-                  closeMobileMenu();
-                  onOpenHireModal();
-                }}
-                className="w-full min-h-[44px] flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-base shadow-lg shadow-indigo-600/30 transition-all"
+                onClick={closeMobileMenu}
+                className="w-full min-h-[44px] flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-b from-indigo-500 to-indigo-600 hover:from-indigo-400 hover:to-indigo-500 text-white font-semibold text-base shadow-lg shadow-indigo-600/30 border border-indigo-400/30 transition-all active:scale-95"
               >
                 <span>Hire on Fiverr</span>
-                <span className="text-xs bg-indigo-900/90 text-indigo-200 px-2 py-0.5 rounded font-mono">
-                  Level 2 Verified
+                <span className="text-xs bg-indigo-950 text-indigo-200 px-2 py-0.5 rounded-full font-mono border border-indigo-700/50">
+                  Level 2 Verified ★ 5.0
                 </span>
-              </button>
+              </a>
             </div>
           </div>
         </div>

@@ -10,10 +10,13 @@ A high-fidelity single-page portfolio and SaaS platform for analytics engineers 
 conversionlayer-academy/
 ├── .github/
 │   └── workflows/
-│       └── deploy.yml              # GitHub Actions CI/CD to Firebase Hosting
+│       ├── firebase-hosting-merge.yml        # Deploys live on push to main branch
+│       └── firebase-hosting-pull-request.yml  # Deploys preview channel on PRs
 ├── public/                         # Static assets (favicons, icons)
 ├── src/
 │   ├── components/                 # Modular UI Components
+│   │   ├── auth/
+│   │   │   └── ProtectedRoute.tsx  # Firebase Auth route guard
 │   │   ├── AcademyCourses.tsx      # Courses grid with syllabus & enroll modal
 │   │   ├── AuditorTool.tsx         # The Tracking Auditor interactive lead magnet
 │   │   ├── DFYServices.tsx         # Done-For-You engineering tiers & Fiverr CTAs
@@ -22,14 +25,20 @@ conversionlayer-academy/
 │   │   ├── Hero.tsx                # Hero section with live telemetry stats bar
 │   │   ├── HireModal.tsx           # Fiverr consultation & order intake modal
 │   │   └── Navbar.tsx              # Sticky glassmorphic navbar with mobile drawer
+│   ├── pages/                      # Routed Application Views
+│   │   ├── admin/
+│   │   │   ├── AdminDashboard.tsx  # Master tabbed Firestore CRUD dashboard
+│   │   │   └── AdminLogin.tsx      # Dark SaaS Firebase Auth login screen
+│   │   └── Home.tsx                # Public SaaS landing page
 │   ├── data/
-│   │   └── academyData.ts          # Mock course and DFY service schemas
+│   │   └── academyData.ts          # Default course and DFY service schemas
 │   ├── lib/
-│   │   └── firebase.ts             # Firebase client configuration (env-driven)
-│   ├── App.tsx                     # Main application layout & state orchestrator
+│   │   └── firebase.ts             # Firebase client (auth, db, storage exports)
+│   ├── App.tsx                     # React Router implementation (/, /admin/login, /admin)
 │   ├── index.css                   # Global styles & Tailwind CSS entry point
 │   └── main.tsx                    # Vite React DOM root entry point
 ├── .env.example                    # Environment variable template
+├── .firebaserc                     # Firebase project alias configuration
 ├── .gitignore                      # Git ignore rules for node_modules and .env files
 ├── firebase.json                   # Firebase Hosting configuration (SPA rewrites to dist/)
 ├── index.html                      # HTML5 entry point & webfont linkages
