@@ -18,6 +18,7 @@ import {
   triggerClientNotification
 } from '../../services/notificationService';
 import { SubmitDeliveryModal } from './SubmitDeliveryModal';
+import { OrderHistoryView } from '../orders/OrderHistoryView';
 
 export const OrderManagement: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -47,25 +48,53 @@ export const OrderManagement: React.FC = () => {
       const snapshot = await getDocs(ordersCol);
       const fetched: Order[] = snapshot.docs.map((docSnap) => {
         const data = docSnap.data();
+        const durDays = Number(data.timeline?.durationDays || data.durationDays) || 7;
+        const totPrice = data.pricing?.total 
+          ? `$${data.pricing.total.toLocaleString()}` 
+          : (data.totalPrice || '$0');
+        const payUrl = data.pricing?.paymentUrl || data.paymentUrl;
+        const startAt = data.timeline?.startDate || data.startedAt;
+        const deadDate = data.timeline?.deadlineDate || data.deadlineDate;
+        const projDetails = data.requirements?.projectDetails || data.projectDetails || 'No technical details provided.';
+        const targetPlatforms = data.requirements?.targetPlatforms || data.targetPlatforms || [];
+        const webUrl = data.requirements?.websiteUrl || data.websiteUrl;
+
         return {
           id: docSnap.id,
           clientEmail: data.clientEmail || 'unknown@client.com',
+          clientUid: data.clientUid,
           clientName: data.clientName,
           companyName: data.companyName,
-          websiteUrl: data.websiteUrl,
+          websiteUrl: webUrl,
           whatsappNumber: data.whatsappNumber,
           serviceId: data.serviceId,
           serviceTitle: data.serviceTitle || 'Enterprise Architecture Scope',
           serviceCategory: data.serviceCategory || 'Data & Measurement',
-          projectDetails: data.projectDetails || 'No technical details provided.',
+          projectDetails: projDetails,
+          targetPlatforms,
+          pricing: data.pricing || {
+            total: parseFloat(String(totPrice).replace(/[^0-9.]/g, '')) || 0,
+            currency: 'USD',
+            paymentUrl: payUrl
+          },
+          timeline: data.timeline || {
+            durationDays: durDays,
+            startDate: startAt,
+            deadlineDate: deadDate
+          },
+          requirements: data.requirements || {
+            projectDetails: projDetails,
+            websiteUrl: webUrl,
+            targetPlatforms
+          },
           status: (data.status as OrderStatus) || 'PENDING_REVIEW',
-          totalPrice: data.totalPrice,
-          paymentUrl: data.paymentUrl,
-          durationDays: Number(data.durationDays) || 7,
+          totalPrice: totPrice,
+          paymentUrl: payUrl,
+          durationDays: durDays,
           proposalNotes: data.proposalNotes,
           approvedAt: data.approvedAt,
-          startedAt: data.startedAt,
-          deadlineDate: data.deadlineDate,
+          startedAt: startAt,
+          deadlineDate: deadDate,
           deliverables: data.deliverables,
           deliverySummary: data.deliverySummary,
           deliveredAt: data.deliveredAt,
@@ -145,11 +174,21 @@ export const OrderManagement: React.FC = () => {
 
     try {
       const orderRef = doc(db, 'orders', approvingOrder.id);
+      const parsedTotal = parseFloat(totalPrice.replace(/[^0-9.]/g, '')) || 0;
       const updateData = {
         totalPrice: totalPrice.trim(),
         paymentUrl: paymentUrl.trim(),
         durationDays: Number(durationDays) || 7,
         proposalNotes: proposalNotes.trim(),
+        pricing: {
+          total: parsedTotal,
+          currency: 'USD',
+          paymentUrl: paymentUrl.trim()
+        },
+        timeline: {
+          ...(approvingOrder.timeline || {}),
+          durationDays: Number(durationDays) || 7
+        },
         status: 'AWAITING_FUNDS' as OrderStatus,
         approvedAt: serverTimestamp(),
         updatedAt: serverTimestamp()
@@ -186,13 +225,13 @@ export const OrderManagement: React.FC = () => {
     }
   };
 
-  // Action: Start Project (used after payment is manually verified)
+  // Action: Verify Payment & Initialize Architecture (Starts Project)
   // Updates status to ACTIVE, calculates deadlineDate based on durationDays
   const handleStartProject = async (order: Order) => {
     setProcessingOrderId(order.id);
     setFeedback(null);
 
-    const durationDays = order.durationDays || 7;
+    const durationDays = order.timeline?.durationDays || order.durationDays || 7;
     const deadlineMs = Date.now() + durationDays * 24 * 60 * 60 * 1000;
     const deadlineDate = new Date(deadlineMs).toISOString();
 
@@ -202,6 +241,12 @@ export const OrderManagement: React.FC = () => {
         status: 'ACTIVE' as OrderStatus,
         startedAt: serverTimestamp(),
         deadlineDate,
+        timeline: {
+          ...(order.timeline || {}),
+          durationDays,
+          startDate: serverTimestamp(),
+          deadlineDate
+        },
         updatedAt: serverTimestamp()
       };
 
@@ -211,7 +256,14 @@ export const OrderManagement: React.FC = () => {
       const updatedOrder: Order = {
         ...order,
         status: 'ACTIVE',
-        deadlineDate
+        startedAt: new Date().toISOString(),
+        deadlineDate,
+        timeline: {
+          ...(order.timeline || {}),
+          durationDays,
+          startDate: new Date().toISOString(),
+          deadlineDate
+        }
       };
       await triggerClientNotification(updatedOrder, 'ORDER_ACTIVATED');
 
@@ -221,7 +273,9 @@ export const OrderManagement: React.FC = () => {
           o.id === order.id
             ? {
                 ...o,
-                ...updateData
+                ...updateData,
+                status: 'ACTIVE',
+                deadlineDate
               }
             : o
         )
@@ -389,12 +443,12 @@ export const OrderManagement: React.FC = () => {
           onClick={() => setFilterStatus('PENDING_REVIEW')}
           className={`px-4 py-2 rounded-lg text-xs font-mono font-semibold transition-all flex items-center gap-2 ${
             filterStatus === 'PENDING_REVIEW'
-              ? 'bg-amber-600 text-white shadow-md shadow-amber-600/30'
+              ? 'bg-yellow-500 text-slate-950 font-bold shadow-md shadow-yellow-500/30'
               : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
           }`}
         >
           <span>Pending Review</span>
-          <span className="px-1.5 py-0.2 rounded-full bg-slate-950/80 text-amber-300 text-[10px]">
+          <span className="px-1.5 py-0.2 rounded-full bg-slate-950/80 text-yellow-300 text-[10px]">
             {pendingCount}
           </span>
         </button>
@@ -404,12 +458,12 @@ export const OrderManagement: React.FC = () => {
           onClick={() => setFilterStatus('AWAITING_FUNDS')}
           className={`px-4 py-2 rounded-lg text-xs font-mono font-semibold transition-all flex items-center gap-2 ${
             filterStatus === 'AWAITING_FUNDS'
-              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+              ? 'bg-yellow-500 text-slate-950 font-bold shadow-md shadow-yellow-500/30'
               : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
           }`}
         >
           <span>Awaiting Funds</span>
-          <span className="px-1.5 py-0.2 rounded-full bg-slate-950/80 text-indigo-300 text-[10px]">
+          <span className="px-1.5 py-0.2 rounded-full bg-slate-950/80 text-yellow-300 text-[10px]">
             {awaitingCount}
           </span>
         </button>
@@ -419,12 +473,12 @@ export const OrderManagement: React.FC = () => {
           onClick={() => setFilterStatus('ACTIVE')}
           className={`px-4 py-2 rounded-lg text-xs font-mono font-semibold transition-all flex items-center gap-2 ${
             filterStatus === 'ACTIVE'
-              ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
+              ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
               : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
           }`}
         >
           <span>Active Deployments</span>
-          <span className="px-1.5 py-0.2 rounded-full bg-slate-950/80 text-emerald-300 text-[10px]">
+          <span className="px-1.5 py-0.2 rounded-full bg-slate-950/80 text-blue-300 text-[10px]">
             {activeCount}
           </span>
         </button>
@@ -449,12 +503,12 @@ export const OrderManagement: React.FC = () => {
           onClick={() => setFilterStatus('COMPLETED')}
           className={`px-4 py-2 rounded-lg text-xs font-mono font-semibold transition-all flex items-center gap-2 ${
             filterStatus === 'COMPLETED'
-              ? 'bg-slate-700 text-white shadow-md'
+              ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
               : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
           }`}
         >
           <span>Completed</span>
-          <span className="px-1.5 py-0.2 rounded-full bg-slate-950/80 text-slate-300 text-[10px]">
+          <span className="px-1.5 py-0.2 rounded-full bg-slate-950/80 text-emerald-300 text-[10px]">
             {completedCount}
           </span>
         </button>
@@ -473,7 +527,9 @@ export const OrderManagement: React.FC = () => {
       </div>
 
       {/* Orders List / Table */}
-      {loading ? (
+      {filterStatus === 'COMPLETED' ? (
+        <OrderHistoryView isAdmin={true} onReorder={fetchOrders} />
+      ) : loading ? (
         <div className="py-20 text-center space-y-3">
           <div className="w-8 h-8 mx-auto border-2 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
           <p className="text-xs font-mono text-slate-400">Loading orders from Firestore...</p>
@@ -508,14 +564,14 @@ export const OrderManagement: React.FC = () => {
                       <span
                         className={`text-[11px] font-mono px-2.5 py-0.5 rounded-full font-bold uppercase ${
                           isPending
-                            ? 'bg-amber-950 text-amber-300 border border-amber-800'
+                            ? 'bg-yellow-950/80 text-yellow-300 border border-yellow-700/80'
                             : isAwaiting
-                            ? 'bg-indigo-950 text-indigo-300 border border-indigo-800'
+                            ? 'bg-yellow-950/80 text-yellow-300 border border-yellow-700/80'
                             : isActive
-                            ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                            ? 'bg-blue-950/80 text-blue-300 border border-blue-700/80'
                             : isDelivered
-                            ? 'bg-purple-950 text-purple-300 border border-purple-800'
-                            : 'bg-teal-950 text-teal-300 border border-teal-800'
+                            ? 'bg-purple-950/80 text-purple-300 border border-purple-700/80'
+                            : 'bg-emerald-950/80 text-emerald-300 border border-emerald-700/80'
                         }`}
                       >
                         {order.status}
@@ -745,7 +801,7 @@ export const OrderManagement: React.FC = () => {
                             <polygon points="5 3 19 12 5 21 5 3" />
                           </svg>
                         )}
-                        <span>Start Project (Funds Verified)</span>
+                        <span>Verify Payment &amp; Initialize Architecture</span>
                       </button>
                     )}
 

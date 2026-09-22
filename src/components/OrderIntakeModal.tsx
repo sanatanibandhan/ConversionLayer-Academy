@@ -24,7 +24,28 @@ export const OrderIntakeModal: React.FC<OrderIntakeModalProps> = ({
   const [websiteUrl, setWebsiteUrl] = useState('');
   const [whatsappNumber, setWhatsappNumber] = useState('');
   const [projectDetails, setProjectDetails] = useState('');
+  const [targetPlatforms, setTargetPlatforms] = useState<string[]>([
+    'Meta Conversions API',
+    'Google Ads / GA4 Server Container'
+  ]);
   const [urgency, setUrgency] = useState<'Standard' | 'Urgent (<48h)' | 'Enterprise Sprint'>('Standard');
+
+  const AVAILABLE_PLATFORMS = [
+    'Meta Conversions API',
+    'Google Ads / GA4 Server Container',
+    'TikTok Events API',
+    'Pinterest CAPI',
+    'Klaviyo Server Telemetry',
+    'Stape Cloud / Cloud Run Setup'
+  ];
+
+  const togglePlatform = (p: string) => {
+    if (targetPlatforms.includes(p)) {
+      setTargetPlatforms(targetPlatforms.filter((item) => item !== p));
+    } else {
+      setTargetPlatforms([...targetPlatforms, p]);
+    }
+  };
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -38,7 +59,7 @@ export const OrderIntakeModal: React.FC<OrderIntakeModalProps> = ({
     setErrorMessage(null);
 
     if (!clientEmail.trim()) {
-      setErrorMessage('Please provide your email address for client portal access and proposal delivery.');
+      setErrorMessage('Please provide your work email address for client portal access and proposal delivery.');
       return;
     }
     if (!projectDetails.trim()) {
@@ -50,17 +71,39 @@ export const OrderIntakeModal: React.FC<OrderIntakeModalProps> = ({
 
     try {
       const ordersCol = collection(db, 'orders');
+      const durationDays = urgency === 'Urgent (<48h)' ? 2 : urgency === 'Enterprise Sprint' ? 4 : 7;
+      
       const orderPayload = {
+        serviceTitle: service.title,
         clientEmail: clientEmail.trim().toLowerCase(),
+        clientUid: user?.uid || '',
+        status: 'PENDING_REVIEW', // Stage 1: PENDING_REVIEW
+        pricing: {
+          total: 0,
+          currency: 'USD',
+          paymentUrl: ''
+        },
+        timeline: {
+          durationDays,
+          startDate: null,
+          deadlineDate: null
+        },
+        requirements: {
+          projectScope: projectDetails.trim(),
+          domainUrl: websiteUrl.trim() || 'N/A',
+          targetPlatforms: targetPlatforms.length > 0 ? targetPlatforms : ['Meta Conversions API']
+        },
+        deliverables: [],
+        revisionNotes: '',
+        // Flat compatibility fields
         companyName: companyName.trim() || 'Undisclosed Entity',
         websiteUrl: websiteUrl.trim() || 'N/A',
         whatsappNumber: whatsappNumber.trim() || '',
         serviceId: service.id,
-        serviceTitle: service.title,
         serviceCategory: service.category || 'Data & Measurement',
         projectDetails: projectDetails.trim(),
+        durationDays,
         urgency,
-        status: 'PENDING_REVIEW', // Default required initial state
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       };
@@ -70,7 +113,6 @@ export const OrderIntakeModal: React.FC<OrderIntakeModalProps> = ({
       setIsSuccess(true);
     } catch (err: unknown) {
       console.error('Failed to submit order request to Firestore:', err);
-      // Fallback: If permissions prevent writing to remote Firestore without rule sync
       setErrorMessage('Network or permission notice: could not write to Firestore orders collection. Please try again or reach out on WhatsApp.');
     } finally {
       setIsSubmitting(false);
@@ -276,10 +318,37 @@ export const OrderIntakeModal: React.FC<OrderIntakeModalProps> = ({
                 </div>
               </div>
 
+              {/* Target Ad & Telemetry Platforms */}
+              <div>
+                <label className="block text-xs font-mono font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
+                  Target Telemetry &amp; Ad Platforms *
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {AVAILABLE_PLATFORMS.map((platform) => {
+                    const isSelected = targetPlatforms.includes(platform);
+                    return (
+                      <button
+                        key={platform}
+                        type="button"
+                        onClick={() => togglePlatform(platform)}
+                        className={`text-xs px-3 py-1.5 rounded-xl font-mono border transition-all cursor-pointer flex items-center gap-1.5 ${
+                          isSelected
+                            ? 'bg-indigo-600 text-white border-indigo-400 font-semibold shadow-md'
+                            : 'bg-slate-950 text-slate-400 border-slate-800 hover:border-slate-700 hover:text-white'
+                        }`}
+                      >
+                        <span className={`w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-emerald-400' : 'bg-slate-600'}`} />
+                        <span>{platform}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               {/* Project Details & Technical Specifications */}
               <div>
                 <label htmlFor="order-project-details" className="block text-xs font-mono font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
-                  Project Details &amp; Technical Requirements *
+                  Project Scope &amp; Technical Requirements *
                 </label>
                 <textarea
                   id="order-project-details"

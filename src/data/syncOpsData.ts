@@ -89,47 +89,78 @@ export type OrderStatus = 'PENDING_REVIEW' | 'AWAITING_FUNDS' | 'ACTIVE' | 'DELI
 export interface DeliverableItem {
   id?: string;
   title: string;
+  label?: string; // Schema requirement alias
   url: string;
   type?: 'gtm_export' | 'github' | 'cloud_run' | 'docs' | 'looker' | 'other';
   notes?: string;
+  submittedAt?: unknown;
+}
+
+export interface OrderDeliverable {
+  label: string;
+  url: string;
+  submittedAt?: unknown;
+  type?: string;
+  notes?: string;
+  title?: string;
+}
+
+export interface OrderPricing {
+  total: number;
+  currency: string;
+  paymentUrl?: string;
+}
+
+export interface OrderTimeline {
+  durationDays: number;
+  startDate?: unknown;
+  deadlineDate?: unknown;
+}
+
+export interface OrderRequirements {
+  projectScope?: string;
+  projectDetails?: string;
+  domainUrl?: string;
+  websiteUrl?: string;
+  targetPlatforms: string[];
 }
 
 export interface Order {
   id: string;
+  serviceTitle: string;
   clientEmail: string;
+  clientUid?: string;
+  status: OrderStatus;
+  
+  // 5-Stage OMS Core Schema
+  pricing?: OrderPricing;
+  timeline?: OrderTimeline;
+  requirements?: OrderRequirements;
+  deliverables?: DeliverableItem[];
+  revisionNotes?: string;
+  createdAt?: unknown;
+  completedAt?: unknown;
+
+  // Compatibility and Metadata Fields
+  targetPlatforms?: string[];
   clientName?: string;
   companyName?: string;
   websiteUrl?: string;
   whatsappNumber?: string;
   serviceId?: string;
-  serviceTitle: string;
   serviceCategory?: string;
-  projectDetails: string;
-  status: OrderStatus;
-  
-  // Admin proposal specifications (set upon approval)
+  projectDetails?: string;
   totalPrice?: string; // e.g. "$3,500"
   paymentUrl?: string; // Direct Stripe / Payoneer checkout link
   durationDays?: number; // e.g. 7 (days)
   proposalNotes?: string;
   approvedAt?: unknown;
-  
-  // Live project delivery specifications (set upon Start Project)
   startedAt?: unknown;
   deadlineDate?: string; // ISO timestamp string of delivery deadline
-  
-  // Final delivery stage specifications (set upon Delivery submission)
-  deliverables?: DeliverableItem[];
   deliverySummary?: string;
   deliveredAt?: unknown;
-  
-  // Client feedback & completion stage
-  revisionNotes?: string;
   revisionCount?: number;
-  completedAt?: unknown;
-  
   notificationSent?: boolean;
-  createdAt?: unknown;
   updatedAt?: unknown;
 }
 
@@ -155,9 +186,10 @@ export interface ClientProject {
   updatedAt?: unknown;
 }
 
+export const PRIMARY_ADMIN_EMAIL = 'iadeshchandra@gmail.com';
+
 export const AUTHORIZED_ADMIN_EMAILS = [
-  'iadeshchandra@gmail.com',
-  'poranray7744@gmail.com'
+  'iadeshchandra@gmail.com'
 ];
 
 export const FIVERR_PROFILE_URL = 'https://www.fiverr.com/adesh_chandra';

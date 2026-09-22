@@ -77,28 +77,54 @@ export const ClientDashboard: React.FC = () => {
           const ordersRef = collection(db, 'orders');
           let orderList: Order[] = [];
           try {
-            const orderQ = query(ordersRef, where('clientEmail', '==', userEmailNormalized));
-            const orderSnap = await getDocs(orderQ);
-            orderSnap.forEach((docSnap) => {
+            const parseOrderDoc = (docSnap: any): Order => {
               const d = docSnap.data();
-              orderList.push({
+              const durDays = Number(d.timeline?.durationDays || d.durationDays) || 7;
+              const totPrice = d.pricing?.total 
+                ? `$${d.pricing.total.toLocaleString()}` 
+                : (d.totalPrice || '$0');
+              const payUrl = d.pricing?.paymentUrl || d.paymentUrl;
+              const startAt = d.timeline?.startDate || d.startedAt;
+              const deadDate = d.timeline?.deadlineDate || d.deadlineDate;
+              const projDetails = d.requirements?.projectDetails || d.projectDetails || '';
+              const targetPlatforms = d.requirements?.targetPlatforms || d.targetPlatforms || [];
+              const webUrl = d.requirements?.websiteUrl || d.websiteUrl;
+
+              return {
                 id: docSnap.id,
                 clientEmail: d.clientEmail || userEmailNormalized,
+                clientUid: d.clientUid,
                 companyName: d.companyName,
-                websiteUrl: d.websiteUrl,
+                websiteUrl: webUrl,
                 whatsappNumber: d.whatsappNumber,
                 serviceId: d.serviceId,
                 serviceTitle: d.serviceTitle || 'Enterprise Architecture Scope',
                 serviceCategory: d.serviceCategory || 'Data & Measurement',
-                projectDetails: d.projectDetails || '',
+                projectDetails: projDetails,
+                targetPlatforms,
+                pricing: d.pricing || {
+                  total: parseFloat(String(totPrice).replace(/[^0-9.]/g, '')) || 0,
+                  currency: 'USD',
+                  paymentUrl: payUrl
+                },
+                timeline: d.timeline || {
+                  durationDays: durDays,
+                  startDate: startAt,
+                  deadlineDate: deadDate
+                },
+                requirements: d.requirements || {
+                  projectDetails: projDetails,
+                  websiteUrl: webUrl,
+                  targetPlatforms
+                },
                 status: d.status || 'PENDING_REVIEW',
-                totalPrice: d.totalPrice,
-                paymentUrl: d.paymentUrl,
-                durationDays: Number(d.durationDays) || 7,
+                totalPrice: totPrice,
+                paymentUrl: payUrl,
+                durationDays: durDays,
                 proposalNotes: d.proposalNotes,
                 approvedAt: d.approvedAt,
-                startedAt: d.startedAt,
-                deadlineDate: d.deadlineDate,
+                startedAt: startAt,
+                deadlineDate: deadDate,
                 deliverables: d.deliverables,
                 deliverySummary: d.deliverySummary,
                 deliveredAt: d.deliveredAt,
@@ -107,7 +133,13 @@ export const ClientDashboard: React.FC = () => {
                 completedAt: d.completedAt,
                 createdAt: d.createdAt,
                 updatedAt: d.updatedAt
-              });
+              };
+            };
+
+            const orderQ = query(ordersRef, where('clientEmail', '==', userEmailNormalized));
+            const orderSnap = await getDocs(orderQ);
+            orderSnap.forEach((docSnap) => {
+              orderList.push(parseOrderDoc(docSnap));
             });
           } catch (ordQueryErr) {
             console.warn('Orders query fallback to full fetch:', ordQueryErr);
@@ -115,24 +147,52 @@ export const ClientDashboard: React.FC = () => {
             allOrderSnap.forEach((docSnap) => {
               const d = docSnap.data();
               if (d.clientEmail?.trim().toLowerCase() === userEmailNormalized) {
+                const durDays = Number(d.timeline?.durationDays || d.durationDays) || 7;
+                const totPrice = d.pricing?.total 
+                  ? `$${d.pricing.total.toLocaleString()}` 
+                  : (d.totalPrice || '$0');
+                const payUrl = d.pricing?.paymentUrl || d.paymentUrl;
+                const startAt = d.timeline?.startDate || d.startedAt;
+                const deadDate = d.timeline?.deadlineDate || d.deadlineDate;
+                const projDetails = d.requirements?.projectDetails || d.projectDetails || '';
+                const targetPlatforms = d.requirements?.targetPlatforms || d.targetPlatforms || [];
+                const webUrl = d.requirements?.websiteUrl || d.websiteUrl;
+
                 orderList.push({
                   id: docSnap.id,
                   clientEmail: d.clientEmail || userEmailNormalized,
+                  clientUid: d.clientUid,
                   companyName: d.companyName,
-                  websiteUrl: d.websiteUrl,
+                  websiteUrl: webUrl,
                   whatsappNumber: d.whatsappNumber,
                   serviceId: d.serviceId,
                   serviceTitle: d.serviceTitle || 'Enterprise Architecture Scope',
                   serviceCategory: d.serviceCategory || 'Data & Measurement',
-                  projectDetails: d.projectDetails || '',
+                  projectDetails: projDetails,
+                  targetPlatforms,
+                  pricing: d.pricing || {
+                    total: parseFloat(String(totPrice).replace(/[^0-9.]/g, '')) || 0,
+                    currency: 'USD',
+                    paymentUrl: payUrl
+                  },
+                  timeline: d.timeline || {
+                    durationDays: durDays,
+                    startDate: startAt,
+                    deadlineDate: deadDate
+                  },
+                  requirements: d.requirements || {
+                    projectDetails: projDetails,
+                    websiteUrl: webUrl,
+                    targetPlatforms
+                  },
                   status: d.status || 'PENDING_REVIEW',
-                  totalPrice: d.totalPrice,
-                  paymentUrl: d.paymentUrl,
-                  durationDays: Number(d.durationDays) || 7,
+                  totalPrice: totPrice,
+                  paymentUrl: payUrl,
+                  durationDays: durDays,
                   proposalNotes: d.proposalNotes,
                   approvedAt: d.approvedAt,
-                  startedAt: d.startedAt,
-                  deadlineDate: d.deadlineDate,
+                  startedAt: startAt,
+                  deadlineDate: deadDate,
                   deliverables: d.deliverables,
                   deliverySummary: d.deliverySummary,
                   deliveredAt: d.deliveredAt,

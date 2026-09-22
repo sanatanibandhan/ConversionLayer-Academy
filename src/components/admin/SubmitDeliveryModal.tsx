@@ -112,7 +112,7 @@ export const SubmitDeliveryModal: React.FC<SubmitDeliveryModalProps> = ({
       return;
     }
 
-    const validDeliverables = deliverables.filter((d) => d.title.trim() && d.url.trim());
+    const validDeliverables = deliverables.filter((d) => (d.title?.trim() || d.label?.trim()) && d.url.trim());
     if (validDeliverables.length === 0) {
       setError('Please provide at least one valid deliverable with title and URL.');
       return;
@@ -122,11 +122,20 @@ export const SubmitDeliveryModal: React.FC<SubmitDeliveryModalProps> = ({
     setError(null);
 
     try {
+      const normalizedDeliverables = validDeliverables.map((d) => ({
+        label: d.label || d.title,
+        title: d.title || d.label,
+        url: d.url.trim(),
+        type: d.type || 'other',
+        notes: d.notes || '',
+        submittedAt: serverTimestamp()
+      }));
+
       const orderRef = doc(db, 'orders', order.id);
       const updateData = {
         status: 'DELIVERED' as OrderStatus,
         deliverySummary: deliverySummary.trim(),
-        deliverables: validDeliverables,
+        deliverables: normalizedDeliverables,
         deliveredAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       };
@@ -137,7 +146,7 @@ export const SubmitDeliveryModal: React.FC<SubmitDeliveryModalProps> = ({
         ...order,
         status: 'DELIVERED',
         deliverySummary: deliverySummary.trim(),
-        deliverables: validDeliverables,
+        deliverables: normalizedDeliverables as DeliverableItem[],
         deliveredAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };

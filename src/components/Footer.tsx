@@ -104,8 +104,8 @@ export const Footer: React.FC<FooterProps> = () => {
                 </a>
               </li>
               <li>
-                <Link to="/admin" className="text-slate-400 hover:text-slate-200 transition-colors">
-                  Admin Terminal
+                <Link to="/client/dashboard" className="text-slate-400 hover:text-indigo-300 transition-colors">
+                  Client Portal
                 </Link>
               </li>
               <li>

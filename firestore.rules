@@ -1,0 +1,136 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // -------------------------------------------------------------------------
+    // GLOBAL SECURITY & AUTHENTICATION HELPERS
+    // -------------------------------------------------------------------------
+
+    // Basic authentication status
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Lead Cloud Security Engineer & Lead Architect Authority
+    // Strictly evaluates verified identity matching iadeshchandra@gmail.com
+    function isAdmin() {
+      return isSignedIn()
+        && request.auth.token.email != null
+        && request.auth.token.email == 'iadeshchandra@gmail.com'
+        && (
+          !('email_verified' in request.auth.token)
+          || request.auth.token.email_verified == true
+        );
+    }
+
+    // Checks if the authenticated user owns or is assigned as the client for an order
+    function isOrderClient(resourceData) {
+      return isSignedIn() && (
+        (resourceData.clientUid != null && resourceData.clientUid != '' && request.auth.uid == resourceData.clientUid) ||
+        (resourceData.clientEmail != null && request.auth.token.email != null && resourceData.clientEmail.lower() == request.auth.token.email.lower())
+      );
+    }
+
+    // Helper shorthand accessors
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Safe string ID format validator
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // -------------------------------------------------------------------------
+    // 1. ORDERS COLLECTION (5-STAGE OMS & PUBLIC INTAKE)
+    // -------------------------------------------------------------------------
+    match /orders/{orderId} {
+      // Admin: Unrestricted read, update, delete
+      // Client: Authenticated access scoped to clientUid OR clientEmail match
+      allow get: if isAdmin() || isOrderClient(existing());
+
+      // List Queries: Admin sees all; Clients can only list where they match clientUid or clientEmail
+      allow list: if isAdmin() || (
+        isSignedIn() && (
+          (existing().clientUid != null && existing().clientUid == request.auth.uid) ||
+          (existing().clientEmail != null && request.auth.token.email != null && existing().clientEmail.lower() == request.auth.token.email.lower())
+        )
+      );
+
+      // Public Intake: Anyone (authenticated or guest) can submit an initial order request
+      // Enforces mandatory fields, initial PENDING_REVIEW state, and size limits
+      allow create: if (
+        incoming().serviceTitle is string && incoming().serviceTitle.size() > 0 && incoming().serviceTitle.size() <= 200 &&
+        incoming().clientEmail is string && incoming().clientEmail.size() > 0 && incoming().clientEmail.size() <= 150 &&
+        (incoming().status == 'PENDING_REVIEW' || isAdmin())
+      );
+
+      // Updates:
+      // - Admin has unrestricted update authority
+      // - Clients can update ONLY their own order and cannot tamper with pricing, timeline, or admin status arbitrarily
+      allow update: if isAdmin() || (
+        isOrderClient(existing()) && (
+          // Client Deliverable Review & Approval Action (transitions to COMPLETED or updates revisionNotes)
+          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'revisionNotes', 'revisionCount', 'completedAt', 'updatedAt'])
+          && incoming().clientEmail == existing().clientEmail
+          && (existing().clientUid == null || incoming().clientUid == existing().clientUid)
+        )
+      );
+
+      // Deletion: Strictly forbidden for public & clients; only Admin
+      allow delete: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // 2. PUBLIC CATALOG COLLECTIONS (SERVICES, CASE STUDIES, LABS)
+    // -------------------------------------------------------------------------
+    match /services/{serviceId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /case_studies/{caseStudyId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /lab_projects/{labProjectId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /lab_videos/{labVideoId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // 3. ENTERPRISE CLIENT PROJECTS & SCOPES
+    // -------------------------------------------------------------------------
+    match /projects/{projectId} {
+      allow read: if isAdmin() || (isSignedIn() && existing().clientEmail != null && request.auth.token.email != null && existing().clientEmail.lower() == request.auth.token.email.lower());
+      allow write: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // 4. LEADS & CONTACT INTAKE
+    // -------------------------------------------------------------------------
+    match /leads/{leadId} {
+      // Anyone can submit lead/audit intake forms
+      allow create: if true;
+      // Only Admin can read, manage, or purge intake leads
+      allow read, update, delete: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // 5. DEFAULT DENY ALL OTHER PATHS
+    // -------------------------------------------------------------------------
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
